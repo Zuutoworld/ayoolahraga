@@ -1,0 +1,48 @@
+import { useEffect, useRef } from "react";
+import L from "leaflet";
+import "leaflet/dist/leaflet.css";
+import type { TrackPoint } from "../lib/geo";
+
+export default function MapView({ points, height = 220 }: { points: TrackPoint[]; height?: number }) {
+  const divRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const lineRef = useRef<L.Polyline | null>(null);
+
+  useEffect(() => {
+    if (!divRef.current || mapRef.current) return;
+    const map = L.map(divRef.current, { zoomControl: false }).setView([-6.2, 106.8], 13);
+    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "© OpenStreetMap",
+    }).addTo(map);
+    L.control.zoom({ position: "bottomright" }).addTo(map);
+    mapRef.current = map;
+    setTimeout(() => map.invalidateSize(), 300);
+    return () => {
+      map.remove();
+      mapRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const clean = points.filter((p) => !p.paused && !p.gap);
+    if (lineRef.current) {
+      lineRef.current.remove();
+      lineRef.current = null;
+    }
+    // hapus marker lama
+    map.eachLayer((l) => {
+      if (l instanceof L.Marker) l.remove();
+    });
+    if (clean.length === 0) return;
+    const latlngs = clean.map((p) => [p.lat, p.lng]) as [number, number][];
+    lineRef.current = L.polyline(latlngs, { color: "#fc4c02", weight: 4 }).addTo(map);
+    L.marker(latlngs[0]).addTo(map);
+    if (latlngs.length > 1) L.marker(latlngs[latlngs.length - 1]).addTo(map);
+    map.fitBounds(lineRef.current.getBounds().pad(0.2));
+  }, [points]);
+
+  return <div ref={divRef} style={{ height, width: "100%", borderRadius: 12, overflow: "hidden" }} />;
+}
