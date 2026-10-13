@@ -3,7 +3,27 @@
 Aplikasi tracking lari/sepeda + panduan latihan & diet. Gratis, tanpa langganan,
 tanpa server — semua data kesimpan di HP masing-masing (localStorage).
 
-## Jalan di HP (satu WiFi, tanpa akun/hosting apa pun)
+## Deploy ke Vercel (gratis, URL publik, bisa dibuka dari mana saja)
+
+Repo git lokal sudah siap (`main`, 1 commit). Pilih salah satu:
+
+**A. Satu perintah (butuh token):**
+1. Buka vercel.com → login → Settings/Account → Tokens → Create (beri nama
+   `ayo`, scope Full Account, tanpa expiry khusus).
+2. Jalankan di folder ini:
+   ```
+   npx vercel --token=TOKEN_KAMU --yes --prod
+   ```
+3. Dapat URL `https://ayo-....vercel.app` → buka di HP Android → ⋮ →
+   Install app / Add to Home screen.
+
+**B. Via dashboard (tanpa CLI):**
+1. Push repo ini ke GitHub (buat repo kosong, lalu
+   `git remote add origin URL_GITHUB && git push -u origin main`).
+2. vercel.com → Add New → Project → Import repo → Framework: Vite →
+   Deploy. Tiap `git push` otomatis deploy ulang.
+
+## Jalan di HP via WiFi lokal (tanpa deploy, buat dev)
 
 GPS dan install-app di HP **wajib HTTPS**, jadi server lokal sudah diset HTTPS.
 
