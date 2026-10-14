@@ -64,6 +64,11 @@ label { display: block; margin: 8px 0; font-size: 14px; }
 .bar-col { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; }
 .bar { width: 100%; background: var(--accent); border-radius: 6px 6px 0 0; }
 .comments { font-size: 14px; margin: 8px 0; display: flex; flex-direction: column; gap: 4px; }
+.moves { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 8px 0; }
+.move { background: #111214; border: 1px solid var(--border); border-radius: 10px; padding: 6px; text-align: center; }
+.move svg { width: 100%; height: auto; display: block; }
+.move span { font-size: 11px; color: var(--muted); }
+.move-ph { font-size: 28px; padding: 18px 0; color: var(--muted); }
 .grow { flex: 1; min-width: 0; }
 .toasts { position: fixed; bottom: calc(76px + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%); width: min(92vw, 480px); display: flex; flex-direction: column; gap: 8px; z-index: 99; pointer-events: none; }
 .toast { background: #22242a; border: 1px solid var(--accent); color: var(--text); border-radius: 12px; padding: 12px 14px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.5); animation: toast-in .2s ease-out; }

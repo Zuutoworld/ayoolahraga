@@ -21,6 +21,7 @@ import {
   sportLabel,
 } from "../src/lib/store";
 import { calcCalories, loadDiets, loadWorkouts } from "../src/lib/guides";
+import { MOVE_IDS, jointsOf, poseAngles } from "../src/components/MoveArt";
 import {
   buildProgram,
   clearProgram,
@@ -170,6 +171,9 @@ ok(!!pr5k && Math.abs(pr5k.paceSec - 300) < 20, "calcPRs ambil pace tercepat", p
 /* ---------- guides ---------- */
 ok(loadWorkouts().length >= 6, "seed >= 6 panduan latihan");
 ok(loadDiets().length >= 4, "seed >= 4 panduan diet");
+for (const g of loadWorkouts()) {
+  ok(Array.isArray(g.moves) && g.moves.length > 0 && g.moves.every((m) => MOVE_IDS.includes(m)), `panduan ${g.id} punya ilustrasi valid`, g.moves);
+}
 const cal = calcCalories(79, 170, 25, true, 1.375);
 ok(cal.bmr === 1733 && cal.tdee === 2382 && cal.cut === 1882, "kalkulator kalori 79kg", cal);
 
@@ -202,6 +206,38 @@ const nextDay = loadLog("u1", new Date(2026, 9, 13));
 ok(nextDay.done.length === 0 && nextDay.logged === false, "hari baru reset otomatis");
 clearProgram("u1");
 ok(loadProgram("u1") === null, "program bisa dihentikan");
+
+// geometri ilustrasi: semua sendi di dalam kanvas, panjang segmen terjaga
+const dist = (a: { x: number; y: number }, b: { x: number; y: number }) =>
+  Math.hypot(a.x - b.x, a.y - b.y);
+for (const id of MOVE_IDS) {
+  for (const ph of [0, 0.5, 1]) {
+    const pose = poseAngles(id, ph);
+    ok(pose !== null, `pose ${id} ada`);
+    if (!pose) continue;
+    const j = jointsOf(pose);
+    const pts = [j.hip, j.shoulder, j.head, j.elbow, j.hand, j.knee, j.foot];
+    ok(
+      pts.every((p) => Number.isFinite(p.x) && Number.isFinite(p.y) && p.x >= -30 && p.x <= 210 && p.y >= -35 && p.y <= 195),
+      `sendi ${id}@${ph} di dalam kanvas`,
+      j,
+    );
+    ok(
+      Math.abs(dist(j.hip, j.shoulder) - 40) < 0.6 &&
+        Math.abs(dist(j.shoulder, j.elbow) - 24) < 0.6 &&
+        Math.abs(dist(j.elbow, j.hand) - 22) < 0.6 &&
+        Math.abs(dist(j.hip, j.knee) - 30) < 0.6 &&
+        Math.abs(dist(j.knee, j.foot) - 30) < 0.6,
+      `panjang segmen ${id}@${ph} terjaga`,
+    );
+  }
+}
+// tugas program hanya memakai id ilustrasi yang ada
+for (const d of [new Date(2026, 9, 12), new Date(2026, 9, 11)]) {
+  for (const t of [...tasksFor(prog, d), ...tasksFor(progPostur, d)]) {
+    ok(t.moves.every((m) => MOVE_IDS.includes(m)), `tugas ${t.id} ilustrasi valid`, t.moves);
+  }
+}
 
 /* ---------- auth ---------- */
 const users0 = listUsers();

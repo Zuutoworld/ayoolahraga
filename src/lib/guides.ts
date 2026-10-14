@@ -8,6 +8,7 @@ export interface WorkoutGuide {
   desc: string;
   steps: string[];
   tips: string[];
+  moves: string[]; // id ilustrasi gerakan (lihat MoveArt)
 }
 
 export interface DietMenu {
@@ -26,8 +27,18 @@ export interface DietGuide {
   rules: string[];
 }
 
-const K_W = "ayo_workouts_v2";
+const K_W = "ayo_workouts_v3";
 const K_D = "ayo_diets_v2";
+const K_W_V2 = "ayo_workouts_v2";
+
+const MOVES_V3: Record<string, string[]> = {
+  "w-pushup": ["wall", "incline", "pushup-knee", "pushup"],
+  "w-situp": ["crunch", "situp", "twist", "plank"],
+  "w-squat": ["squat", "glute-bridge", "lunge", "calf"],
+  "w-plank": ["plank", "side-plank", "shoulder-tap"],
+  "w-walk": ["leg-swing", "walk"],
+  "w-fullbody": ["jack", "squat", "pushup-knee", "climber", "glute-bridge", "plank"],
+};
 
 function read<T>(key: string): T | null {
   try {
@@ -56,8 +67,17 @@ export const CAT_LABEL: Record<WorkoutGuide["category"], string> = {
 
 export function loadWorkouts(): WorkoutGuide[] {
   const cur = read<WorkoutGuide[]>(K_W);
-  if (cur && cur.length > 0) return cur;
-  const seed: WorkoutGuide[] = [
+  if (cur && cur.length > 0) return cur.map((g) => ({ ...g, moves: g.moves ?? MOVES_V3[g.id] ?? [] }));
+  // migrasi dari v2 (pertahankan editan yang sudah ada) atau seed baru
+  const v2 = read<WorkoutGuide[]>(K_W_V2);
+  const base = v2 && v2.length > 0 ? v2 : seedWorkouts();
+  const out = base.map((g) => ({ ...g, moves: g.moves ?? MOVES_V3[g.id] ?? [] }));
+  write(K_W, out);
+  return out;
+}
+
+function seedWorkouts(): WorkoutGuide[] {
+  return [
     {
       id: "w-pushup",
       title: "Push Up Pemula",
@@ -66,6 +86,7 @@ export function loadWorkouts(): WorkoutGuide[] {
       durationMin: 10,
       caloriesEst: 60,
       desc: "Progresi aman dari dinding sampai lutut. Cocok buat mulai dari nol.",
+      moves: ["wall", "incline", "pushup-knee", "pushup"],
       steps: [
         "Pemanasan: arm circle + jumping jack ringan 2 menit.",
         "Wall push up 3 set x 12 repetisi, istirahat 60 detik.",
@@ -87,6 +108,7 @@ export function loadWorkouts(): WorkoutGuide[] {
       durationMin: 12,
       caloriesEst: 70,
       desc: "Latihan perut + pinggang tanpa alat. Jangan tarik leher.",
+      moves: ["crunch", "situp", "twist", "plank"],
       steps: [
         "Pemanasan: jalan di tempat 2 menit.",
         "Crunch 3 set x 12 repetisi, tempelkan punggung bawah ke lantai.",
@@ -107,6 +129,7 @@ export function loadWorkouts(): WorkoutGuide[] {
       durationMin: 12,
       caloriesEst: 80,
       desc: "Kaki kuat = lari lebih enak. Fokus form dulu sebelum tambah repetisi.",
+      moves: ["squat", "glute-bridge", "lunge", "calf"],
       steps: [
         "Pemanasan: leg swing + bodyweight squat ringan 2 menit.",
         "Bodyweight squat 3 set x 12, lutut sejajar ujung kaki.",
@@ -127,6 +150,7 @@ export function loadWorkouts(): WorkoutGuide[] {
       durationMin: 8,
       caloriesEst: 50,
       desc: "Naikkan durasi plank sedikit tiap hari. Core stabil, postur rapi.",
+      moves: ["plank", "side-plank", "shoulder-tap"],
       steps: [
         "Hari 1-2: plank 3 x 20 detik.",
         "Hari 3-4: plank 3 x 30 detik + side plank 2 x 15 detik per sisi.",
@@ -143,6 +167,7 @@ export function loadWorkouts(): WorkoutGuide[] {
       durationMin: 30,
       caloriesEst: 140,
       desc: "Bakar kalori yang ramah untuk semua level: low impact, bisa dilakukan tiap hari.",
+      moves: ["leg-swing", "walk"],
       steps: [
         "5 menit jalan santai sebagai pemanasan.",
         "20 menit jalan cepat (masih bisa ngomong tapi ngos-ngosan).",
@@ -158,6 +183,7 @@ export function loadWorkouts(): WorkoutGuide[] {
       durationMin: 20,
       caloriesEst: 150,
       desc: "Satu ronde 40 detik kerja + 20 detik istirahat, ulang 2 ronde.",
+      moves: ["jack", "squat", "pushup-knee", "climber", "glute-bridge", "plank"],
       steps: [
         "Jumping jack, squat, push up lutut, mountain climber, glute bridge, plank.",
         "Ronde 1: tiap gerakan 40 detik, istirahat 20 detik.",
@@ -167,8 +193,6 @@ export function loadWorkouts(): WorkoutGuide[] {
       tips: ["Dahulukan teknik yang benar, kecepatan belakangan.", "Minum sebelum haus, berhenti jika pusing."],
     },
   ];
-  write(K_W, seed);
-  return seed;
 }
 
 export function saveWorkouts(list: WorkoutGuide[]): void {

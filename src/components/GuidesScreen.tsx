@@ -2,15 +2,14 @@ import { useState } from "react";
 import {
   CAT_LABEL,
   calcCalories,
-  loadDiets,
   loadWorkouts,
-  saveDiets,
   saveWorkouts,
   uid,
 } from "../lib/guides";
 import { useToast } from "../lib/toast";
 import ProgramScreen from "./ProgramScreen";
-import type { DietGuide, WorkoutGuide } from "../lib/guides";
+import { MoveGallery } from "./MoveArt";
+import type { WorkoutGuide } from "../lib/guides";
 import type { User } from "../lib/auth";
 
 const LEVELS: WorkoutGuide["level"][] = ["pemula", "menengah", "lanjutan"];
@@ -29,14 +28,11 @@ export default function GuidesScreen({
   onLogWorkout: (g: WorkoutGuide) => void;
   onLogProgram: (minutes: number, title: string, desc: string) => void;
 }) {
-  const [tab, setTab] = useState<"workout" | "diet" | "calc" | "program">("workout");
+  const [tab, setTab] = useState<"workout" | "calc" | "program">("workout");
   const [workouts, setWorkouts] = useState<WorkoutGuide[]>(() => loadWorkouts());
-  const [diets, setDiets] = useState<DietGuide[]>(() => loadDiets());
   const [cat, setCat] = useState<string>("semua");
   const [openW, setOpenW] = useState<string | null>(null);
-  const [openD, setOpenD] = useState<string | null>(null);
   const [editW, setEditW] = useState<WorkoutGuide | null>(null);
-  const [editD, setEditD] = useState<DietGuide | null>(null);
   const toast = useToast();
 
   // kalkulator (tanpa angka default: tiap orang beda badan)
@@ -54,10 +50,6 @@ export default function GuidesScreen({
     setWorkouts(list);
     saveWorkouts(list);
   };
-  const persistD = (list: DietGuide[]) => {
-    setDiets(list);
-    saveDiets(list);
-  };
 
   const shownW = workouts.filter((x) => cat === "semua" || x.category === cat);
 
@@ -65,9 +57,8 @@ export default function GuidesScreen({
     <div>
       <div className="row">
         <button className={tab === "workout" ? "btn primary" : "btn"} onClick={() => setTab("workout")}>Latihan</button>
-        <button className={tab === "diet" ? "btn primary" : "btn"} onClick={() => setTab("diet")}>Diet</button>
-        <button className={tab === "calc" ? "btn primary" : "btn"} onClick={() => setTab("calc")}>Kalkulator</button>
         <button className={tab === "program" ? "btn primary" : "btn"} onClick={() => setTab("program")}>Program</button>
+        <button className={tab === "calc" ? "btn primary" : "btn"} onClick={() => setTab("calc")}>Kalkulator</button>
       </div>
 
       {tab === "program" && (
@@ -91,7 +82,7 @@ export default function GuidesScreen({
             <button
               className="btn"
               onClick={() =>
-                setEditW({ id: uid(), title: "", category: "strength", level: "pemula", durationMin: 10, caloriesEst: 60, desc: "", steps: [], tips: [] })
+                setEditW({ id: uid(), title: "", category: "strength", level: "pemula", durationMin: 10, caloriesEst: 60, desc: "", steps: [], tips: [], moves: [] })
               }
             >
               + Tambah Panduan
@@ -125,6 +116,7 @@ export default function GuidesScreen({
                   <ol>{g.steps.map((s, i) => <li key={i}>{s}</li>)}</ol>
                   <h4>Tips form</h4>
                   <ul>{g.tips.map((s, i) => <li key={i}>{s}</li>)}</ul>
+                  <MoveGallery moves={g.moves ?? []} />
                 </div>
               )}
               <div className="row">
@@ -141,84 +133,6 @@ export default function GuidesScreen({
                         if (!confirm(`Hapus panduan "${g.title}"?`)) return;
                         persistW(workouts.filter((x) => x.id !== g.id));
                         toast("Panduan latihan dihapus.");
-                      }}
-                    >
-                      Hapus
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {tab === "diet" && (
-        <div>
-          <div className="card">
-            {typeof user.weightKg === "number" && user.weightKg > 0 ? (
-              <>
-                <b>Target personal: turun dari berat {user.weightKg} kg</b>
-                <p className="muted">Patokan: defisit sekitar 500 kkal per hari setara turun ±0.5 kg per minggu. Jaga protein tinggi, hentikan minuman manis, dan cukupkan tidur.</p>
-              </>
-            ) : (
-              <>
-                <b>Target personal belum bisa dihitung</b>
-                <p className="muted">Isi berat badan di tab Kalkulator (atau di Profil) agar panduan diet menyesuaikan dengan badan Anda, bukan angka orang lain.</p>
-              </>
-            )}
-          </div>
-          {isAdmin && (
-            <button
-              className="btn"
-              onClick={() => setEditD({ id: uid(), title: "", goal: "turun", calories: 1800, proteinG: 120, desc: "", menus: [], rules: [] })}
-            >
-              + Tambah Panduan Diet
-            </button>
-          )}
-          {editD && (
-            <DietForm
-              init={editD}
-              onCancel={() => setEditD(null)}
-              onSave={(g) => {
-                const list = diets.some((x) => x.id === g.id)
-                  ? diets.map((x) => (x.id === g.id ? g : x))
-                  : [g, ...diets];
-                persistD(list);
-                setEditD(null);
-                toast("Panduan diet tersimpan.");
-              }}
-            />
-          )}
-          {diets.map((d) => (
-            <div key={d.id} className="card">
-              <div className="feed-head">
-                <b>{d.title}</b>
-                <span className="muted">{d.calories} kkal • protein {d.proteinG}g</span>
-              </div>
-              <p>{d.desc}</p>
-              {openD === d.id && (
-                <div>
-                  {d.menus.map((m, i) => (
-                    <div key={i} className="split"><span><b>{m.meal}</b><br />{m.items}</span></div>
-                  ))}
-                  <h4>Aturan main</h4>
-                  <ul>{d.rules.map((r, i) => <li key={i}>{r}</li>)}</ul>
-                </div>
-              )}
-              <div className="row">
-                <button className="btn" onClick={() => setOpenD(openD === d.id ? null : d.id)}>
-                  {openD === d.id ? "Tutup" : "Lihat Menu"}
-                </button>
-                {isAdmin && (
-                  <>
-                    <button className="btn" onClick={() => setEditD(d)}>Edit</button>
-                    <button
-                      className="btn danger"
-                      onClick={() => {
-                        if (!confirm(`Hapus panduan "${d.title}"?`)) return;
-                        persistD(diets.filter((x) => x.id !== d.id));
-                        toast("Panduan diet dihapus.");
                       }}
                     >
                       Hapus
@@ -293,6 +207,7 @@ function WorkoutForm({ init, onSave, onCancel }: { init: WorkoutGuide; onSave: (
   const [f, setF] = useState(init);
   const [steps, setSteps] = useState(init.steps.join("\n"));
   const [tips, setTips] = useState(init.tips.join("\n"));
+  const [moves, setMoves] = useState((init.moves ?? []).join(", "));
   const toast = useToast();
   return (
     <div className="card">
@@ -315,58 +230,13 @@ function WorkoutForm({ init, onSave, onCancel }: { init: WorkoutGuide; onSave: (
       <label>Deskripsi<textarea value={f.desc} onChange={(e) => setF({ ...f, desc: e.target.value })} /></label>
       <label>Langkah (1 baris = 1 langkah)<textarea rows={4} value={steps} onChange={(e) => setSteps(e.target.value)} /></label>
       <label>Tips (1 baris = 1 tips)<textarea rows={3} value={tips} onChange={(e) => setTips(e.target.value)} /></label>
+      <label>Ilustrasi gerakan (id dipisah koma, mis. squat, plank, walk)<input value={moves} onChange={(e) => setMoves(e.target.value)} placeholder="squat, plank" /></label>
       <div className="row">
         <button
           className="btn primary"
           onClick={() => {
             if (!f.title.trim()) { toast("Judul panduan wajib diisi."); return; }
-            onSave({ ...f, steps: steps.split("\n").map((s) => s.trim()).filter(Boolean), tips: tips.split("\n").map((s) => s.trim()).filter(Boolean) });
-          }}
-        >
-          Simpan
-        </button>
-        <button className="btn" onClick={onCancel}>Batal</button>
-      </div>
-    </div>
-  );
-}
-
-function DietForm({ init, onSave, onCancel }: { init: DietGuide; onSave: (g: DietGuide) => void; onCancel: () => void }) {
-  const [f, setF] = useState(init);
-  const [menus, setMenus] = useState(init.menus.map((m) => `${m.meal} | ${m.items}`).join("\n"));
-  const [rules, setRules] = useState(init.rules.join("\n"));
-  const toast = useToast();
-  return (
-    <div className="card">
-      <h3>Panduan diet</h3>
-      <label>Judul<input value={f.title} onChange={(e) => setF({ ...f, title: e.target.value })} /></label>
-      <div className="grid2">
-        <label>Goal
-          <select value={f.goal} onChange={(e) => setF({ ...f, goal: e.target.value as DietGuide["goal"] })}>
-            <option value="turun">Turun BB</option>
-            <option value="jaga">Jaga BB</option>
-            <option value="naik">Naik BB</option>
-          </select>
-        </label>
-        <label>Kalori<input type="number" value={f.calories} onChange={(e) => setF({ ...f, calories: Number(e.target.value) })} /></label>
-        <label>Protein (g)<input type="number" value={f.proteinG} onChange={(e) => setF({ ...f, proteinG: Number(e.target.value) })} /></label>
-      </div>
-      <label>Deskripsi<textarea value={f.desc} onChange={(e) => setF({ ...f, desc: e.target.value })} /></label>
-      <label>Menu (format: Waktu | isi, 1 baris = 1 menu)<textarea rows={4} value={menus} onChange={(e) => setMenus(e.target.value)} /></label>
-      <label>Aturan (1 baris = 1 aturan)<textarea rows={3} value={rules} onChange={(e) => setRules(e.target.value)} /></label>
-      <div className="row">
-        <button
-          className="btn primary"
-          onClick={() => {
-            if (!f.title.trim()) { toast("Judul panduan wajib diisi."); return; }
-            onSave({
-              ...f,
-              menus: menus.split("\n").map((s) => s.trim()).filter(Boolean).map((s) => {
-                const [meal, ...rest] = s.split("|");
-                return { meal: meal.trim() || "Menu", items: rest.join("|").trim() || s };
-              }),
-              rules: rules.split("\n").map((s) => s.trim()).filter(Boolean),
-            });
+            onSave({ ...f, steps: steps.split("\n").map((s) => s.trim()).filter(Boolean), tips: tips.split("\n").map((s) => s.trim()).filter(Boolean), moves: moves.split(",").map((s) => s.trim()).filter(Boolean) });
           }}
         >
           Simpan

@@ -9,6 +9,7 @@ export interface ProgramTask {
   minutes: number;
   kcal: number;
   kind: "gerak" | "makan" | "pulih";
+  moves: string[]; // id ilustrasi gerakan (lihat MoveArt)
 }
 
 export interface Program {
@@ -77,6 +78,7 @@ const WALK30: ProgramTask = {
   minutes: 30,
   kcal: 140,
   kind: "gerak",
+  moves: ["walk"],
 };
 
 const STRENGTH: ProgramTask = {
@@ -86,6 +88,7 @@ const STRENGTH: ProgramTask = {
   minutes: 20,
   kcal: 150,
   kind: "gerak",
+  moves: ["squat", "pushup-knee", "glute-bridge", "plank", "climber"],
 };
 
 const CORE: ProgramTask = {
@@ -95,6 +98,7 @@ const CORE: ProgramTask = {
   minutes: 12,
   kcal: 70,
   kind: "gerak",
+  moves: ["crunch", "situp", "twist", "plank"],
 };
 
 const CIRCUIT_A: ProgramTask = {
@@ -104,6 +108,7 @@ const CIRCUIT_A: ProgramTask = {
   minutes: 15,
   kcal: 60,
   kind: "gerak",
+  moves: ["chin-tuck", "wall-angel", "thoracic", "deadbug", "glute-bridge", "plank"],
 };
 
 const CIRCUIT_B: ProgramTask = {
@@ -113,6 +118,7 @@ const CIRCUIT_B: ProgramTask = {
   minutes: 15,
   kcal: 60,
   kind: "gerak",
+  moves: ["birddog", "side-plank", "hip-stretch", "chest-stretch", "squat"],
 };
 
 /** Daftar tugas hari itu. Deterministik dari tanggal: reset otomatis tiap hari. */
@@ -121,7 +127,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
   if (p.goal === "diet") {
     const tasks: ProgramTask[] = [];
     if (day === 0) {
-      tasks.push({ ...WALK30, id: "walk20", title: "Jalan Santai 20 Menit", minutes: 20, kcal: 90 });
+      tasks.push({ ...WALK30, id: "walk20", title: "Jalan Santai 20 Menit", minutes: 20, kcal: 90, moves: ["walk"] });
     } else {
       tasks.push(WALK30);
     }
@@ -135,6 +141,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
         minutes: 0,
         kcal: 0,
         kind: "makan",
+        moves: [],
       },
       {
         id: "eat-protein",
@@ -143,6 +150,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
         minutes: 0,
         kcal: 0,
         kind: "makan",
+        moves: [],
       },
       {
         id: "eat-drink",
@@ -151,6 +159,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
         minutes: 0,
         kcal: 0,
         kind: "makan",
+        moves: [],
       },
       {
         id: "sleep",
@@ -159,6 +168,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
         minutes: 0,
         kcal: 0,
         kind: "pulih",
+        moves: [],
       },
     );
     return tasks;
@@ -166,7 +176,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
   // postur: sirkuit bergantian A/B tiap tanggal ganjil/genap + jalan + kebiasaan
   const tasks: ProgramTask[] = [date.getDate() % 2 === 1 ? CIRCUIT_A : CIRCUIT_B];
   tasks.push(
-    { ...WALK30, id: "walk20", title: "Jalan 20–30 Menit", minutes: 25, kcal: 110 },
+    { ...WALK30, id: "walk20", title: "Jalan 20–30 Menit", minutes: 25, kcal: 110, moves: ["walk"] },
     {
       id: "habit-sit",
       title: "Duduk Tegak Tiap Jam",
@@ -174,6 +184,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
       minutes: 0,
       kcal: 0,
       kind: "pulih",
+      moves: [],
     },
     {
       id: "habit-protein",
@@ -182,6 +193,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
       minutes: 0,
       kcal: 0,
       kind: "makan",
+      moves: [],
     },
     {
       id: "habit-water",
@@ -190,6 +202,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
       minutes: 0,
       kcal: 0,
       kind: "makan",
+      moves: [],
     },
     {
       id: "sleep",
@@ -198,6 +211,7 @@ export function tasksFor(p: Program, date: Date = new Date()): ProgramTask[] {
       minutes: 0,
       kcal: 0,
       kind: "pulih",
+      moves: [],
     },
   );
   return tasks;

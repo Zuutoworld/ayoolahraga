@@ -14,6 +14,7 @@ import {
 } from "../lib/program";
 import type { DayLog, Program, ProgramGoal } from "../lib/program";
 import { useToast } from "../lib/toast";
+import { MoveGallery } from "./MoveArt";
 import type { User } from "../lib/auth";
 
 const KIND_LABEL = { gerak: "Gerak", makan: "Nutrisi", pulih: "Pemulihan" } as const;
@@ -167,6 +168,7 @@ export default function ProgramScreen({
               <span className="muted">{KIND_LABEL[t.kind]}{t.minutes > 0 ? ` • ${t.minutes} mnt • ±${t.kcal} kkal` : " • kebiasaan"}</span>
             </div>
             <p>{t.detail}</p>
+            <MoveGallery moves={t.moves} />
             <div className="row">
               <button
                 className="btn primary"
