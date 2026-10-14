@@ -1,6 +1,7 @@
+import { useState } from "react";
 import MapView from "./MapView";
 import { formatDate, formatDist, formatPace, formatTime, toGpx } from "../lib/geo";
-import { activityText, openWaShare } from "../lib/share";
+import { shareActivityImage } from "../lib/shareCard";
 import { useToast } from "../lib/toast";
 import type { Activity } from "../lib/store";
 
@@ -14,6 +15,7 @@ export default function DetailScreen({
   onBack: () => void;
 }) {
   const toast = useToast();
+  const [busy, setBusy] = useState(false);
   const exportGpx = () => {
     const gpx = toGpx(activity.title, activity.points);
     const blob = new Blob([gpx], { type: "application/gpx+xml" });
@@ -70,12 +72,14 @@ export default function DetailScreen({
           <button className="btn" onClick={() => void shareLink()}>Bagikan ke Teman</button>
           <button
             className="btn"
+            disabled={busy}
             onClick={() => {
-              openWaShare(activityText(activity, `${location.origin}${location.pathname}`));
-              toast("Membuka WhatsApp untuk berbagi.");
+              setBusy(true);
+              toast("Menyiapkan gambar…");
+              void shareActivityImage(activity, toast).finally(() => setBusy(false));
             }}
           >
-            Bagikan WA
+            {busy ? "Menyiapkan…" : "Bagikan WA"}
           </button>
         </div>
       </div>

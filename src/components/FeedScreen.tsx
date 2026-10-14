@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { formatDate, formatDist, formatPace, formatTime } from "../lib/geo";
-import { activityText, openWaShare } from "../lib/share";
+import { shareActivityImage } from "../lib/shareCard";
 import { sportLabel } from "../lib/store";
 import { useToast } from "../lib/toast";
 import type { Activity } from "../lib/store";
@@ -27,6 +27,7 @@ export default function FeedScreen({
   onDelete: (id: string) => void;
 }) {
   const [draft, setDraft] = useState<Record<string, string>>({});
+  const [sharingId, setSharingId] = useState<string | null>(null);
   const toast = useToast();
   const list = activities.filter((a) => {
     if (filter === "mine") return a.mine;
@@ -65,12 +66,14 @@ export default function FeedScreen({
             <button className="btn" onClick={() => onOpen(a.id)}>Detail & Peta</button>
             <button
               className="btn"
+              disabled={sharingId === a.id}
               onClick={() => {
-                openWaShare(activityText(a, `${location.origin}${location.pathname}`));
-                toast("Membuka WhatsApp untuk berbagi.");
+                setSharingId(a.id);
+                toast("Menyiapkan gambar…");
+                void shareActivityImage(a, toast).finally(() => setSharingId(null));
               }}
             >
-              Bagikan WA
+              {sharingId === a.id ? "Menyiapkan…" : "Bagikan WA"}
             </button>
             {(a.mine || isAdmin) && (
               <button

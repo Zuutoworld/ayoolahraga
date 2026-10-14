@@ -22,6 +22,7 @@ import {
 } from "../src/lib/store";
 import { calcCalories, loadDiets, loadWorkouts } from "../src/lib/guides";
 import { activityText, waShareUrl } from "../src/lib/share";
+import { layoutRoute } from "../src/lib/shareCard";
 import { MOVE_IDS, jointsOf, poseAngles } from "../src/components/MoveArt";
 import {
   buildProgram,
@@ -166,6 +167,18 @@ ok(
   waUrl.startsWith("https://wa.me/?text=") && decodeURIComponent(waUrl.slice("https://wa.me/?text=".length)) === shareTxt,
   "URL wa.me roundtrip utuh",
 );
+
+// layout kartu berbagi: proporsional di dalam kanvas + padding
+ok(layoutRoute([], 960, 560, 70) === null, "rute kosong -> null");
+ok(layoutRoute([{ lat: -6.2, lng: 106.8, t: 0, acc: 5 }], 960, 560, 70)?.[0].x === 480, "satu titik di tengah");
+const fit = layoutRoute(run2k, 960, 560, 70);
+ok(
+  !!fit &&
+    fit.length === run2k.length &&
+    fit.every((p) => p.x >= 70 - 1 && p.x <= 960 - 70 + 1 && p.y >= 70 - 1 && p.y <= 560 - 70 + 1),
+  "semua titik di dalam padding",
+);
+ok(!!fit && fit[0].y > fit[fit.length - 1].y, "arah utara tetap di atas");
 
 // PR: 5K 30 mnt vs 5K 25 mnt -> yang tercepat menang (titik rapat biar presisi)
 const mk = (id: string, distM: number, secs: number, start: number) => {
