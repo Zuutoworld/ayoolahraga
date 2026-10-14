@@ -38,16 +38,11 @@ export function totalDistanceM(points: TrackPoint[]): number {
   return d;
 }
 
-/** Klasifikasi titik GPS baru. pure function agar bisa di-unit-test. */
+/** Klasifikasi titik GPS baru. pure function agar bisa di-unit-test.
+ *  Filosofi Strava: rekam semua titik yang masuk akal, JANGAN buang karena
+ *  kecepatan — motor di mode lari pun harus tetap terekam penuh. */
 export type GpsVerdict = "good" | "coarse" | "drop";
-export function classifyGps(
-  prevKeptT: number | null,
-  t: number,
-  acc: number,
-  speedMps: number | null,
-  distFromPrevM: number | null,
-  starveMs = 15_000,
-): GpsVerdict {
+export function classifyGps(acc: number, speedMps: number | null, distFromPrevM: number | null): GpsVerdict {
   if (!Number.isFinite(acc)) return "drop";
   if (acc <= 50) {
     // jitter clamp: nyaris diam + geser di bawah setengah akurasi = drift, bukan gerak
@@ -61,14 +56,24 @@ export function classifyGps(
     }
     return "good";
   }
-  // 50-100 m: terima darurat kalau sudah lama tanpa titik bagus (kota/gang sempit).
-  // Tanpa ini garis jadi lurus karena titik yang tersisa terlalu jarang (bug foto 1).
-  if (acc <= 100 && (prevKeptT === null || t - prevKeptT > starveMs)) return "coarse";
+  // 50-100 m: selalu direkam sebagai coarse (titik putih). Hanya drift saat
+  // benar-benar diam yang dibuang agar jarak tidak menggelembung.
+  if (acc <= 100) {
+    if (
+      distFromPrevM !== null &&
+      speedMps !== null &&
+      speedMps < 0.5 &&
+      distFromPrevM < Math.max(4, acc * 0.5)
+    ) {
+      return "drop";
+    }
+    return "coarse";
+  }
   return "drop";
 }
 
-/** Lompatan mustahil = glitch GPS. Batas per olahraga (motor jelas lebih cepat dari lari). */
-export function isImpossibleJump(distM: number, dtSec: number, maxMps = 15): boolean {
+/** Hanya teleportasi glitch yang dibuang (>216 km/jam, di luar nalar kendaraan). */
+export function isImpossibleJump(distM: number, dtSec: number, maxMps = 60): boolean {
   return dtSec >= 1 && distM / dtSec > maxMps;
 }
 

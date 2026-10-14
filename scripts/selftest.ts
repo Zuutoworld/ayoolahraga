@@ -18,7 +18,6 @@ import {
   calcPRs,
   loadActivities,
   logWorkoutActivity,
-  maxSpeedFor,
   pauseSpeedFor,
   saveActivities,
   sportLabel,
@@ -105,20 +104,19 @@ ok(routeHash(run2k) === routeHash(run2k), "routeHash deterministik");
 ok(routeHash(run2k) !== routeHash([...run2k].reverse()), "routeHash beda rute beda hash");
 ok(toGpx("Tes", run2k.slice(0, 2)).includes("<trkpt"), "toGpx berisi trkpt");
 
-// filter GPS: titik bagus lolos, drift diam dibuang, darurat coarse saat starving
-ok(classifyGps(null, 1000, 8, null, null) === "good", "gps bagus diterima");
-ok(classifyGps(0, 60_000, 8, 0.2, 2) === "drop", "drift diam dibuang (jitter clamp)");
-ok(classifyGps(0, 60_000, 8, 2.5, 30) === "good", "gerak nyata tidak kena clamp");
-ok(classifyGps(0, 60_000, 80, 1.5, 40) === "coarse", "akurasi 80 starving 60 dtk -> coarse");
-ok(classifyGps(55_000, 60_000, 80, 1.5, 40) === "drop", "akurasi 80 tapi baru 5 dtk -> drop");
-ok(classifyGps(null, 1000, 150, null, null) === "drop", "akurasi >100 dibuang");
-ok(classifyGps(null, 1000, NaN, null, null) === "drop", "akurasi invalid dibuang");
-ok(isImpossibleJump(200, 1) === true, "lompatan 200 m/dtk mustahil");
+// filter GPS: titik bagus lolos, drift diam dibuang, akurasi 50-100 selalu direkam
+ok(classifyGps(8, null, null) === "good", "gps bagus diterima");
+ok(classifyGps(8, 0.2, 2) === "drop", "drift diam dibuang (jitter clamp)");
+ok(classifyGps(8, 2.5, 30) === "good", "gerak nyata tidak kena clamp");
+ok(classifyGps(80, 1.5, 40) === "coarse", "akurasi 80 tetap direkam (coarse)");
+ok(classifyGps(80, 12, 70) === "coarse", "ngebut + sinyal jelek tetap direkam ala Strava");
+ok(classifyGps(80, 0.2, 5) === "drop", "diam total + sinyal jelek dibuang");
+ok(classifyGps(150, null, null) === "drop", "akurasi >100 dibuang");
+ok(classifyGps(NaN, null, null) === "drop", "akurasi invalid dibuang");
+ok(isImpossibleJump(200, 1) === true, "teleportasi 200 m/dtk dibuang");
+ok(isImpossibleJump(70, 1) === true, "70 m/dtk masih glitch");
+ok(isImpossibleJump(50, 1) === false, "50 m/dtk (180 km/jam) direkam");
 ok(isImpossibleJump(10, 2) === false, "10 m/2 dtk wajar");
-ok(isImpossibleJump(20, 1) === true && isImpossibleJump(20, 1, 55) === false, "batas ikut olahraga (motor 55)");
-ok(classifyGps(0, 6_000, 80, 12, 70, 5_000) === "coarse", "motor: starving 5 dtk cukup");
-ok(classifyGps(0, 6_000, 80, 12, 70) === "drop", "default: starving 15 dtk");
-ok(maxSpeedFor("motor") === 55 && maxSpeedFor("run") === 15 && maxSpeedFor("ride") === 25, "maxSpeed per olahraga");
 ok(pauseSpeedFor("motor") === 1.5 && pauseSpeedFor("run") === 0.5, "ambang pause per olahraga");
 ok(formatSpeed(10000, 1800) === "20.0 km/jam", "formatSpeed 10K/30mnt");
 ok(formatSpeed(10, 3) === "—", "formatSpeed invalid");

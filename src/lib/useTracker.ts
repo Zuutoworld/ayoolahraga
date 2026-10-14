@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { classifyGps, haversineM, isImpossibleJump, totalDistanceM } from "./geo";
 import type { GpsVerdict, TrackPoint } from "./geo";
-import { maxSpeedFor, pauseSpeedFor } from "./store";
+import { pauseSpeedFor } from "./store";
 import type { Sport } from "./store";
 import { loadDraft, saveDraft } from "./store";
 import type { Draft } from "./store";
@@ -191,9 +191,8 @@ export function useTracker(): Tracker {
         const dist = prev
           ? haversineM(prev, { lat: latitude, lng: longitude, t, acc })
           : null;
-        // motor lebih cepat + butuh titik darurat lebih agresif (5 dtk, bukan 15)
-        const starveMs = sportRef.current === "motor" ? 5_000 : 15_000;
-        verdict = classifyGps(prev ? prev.t : null, t, acc, speed ?? null, dist, starveMs);
+        // rekam semua: mode olahraga tidak memengaruhi titik yang disimpan
+        verdict = classifyGps(acc, speed ?? null, dist);
       }
       if (verdict === "drop") return;
       const np: TrackPoint = {
@@ -205,10 +204,10 @@ export function useTracker(): Tracker {
         gap,
         coarse: verdict === "coarse",
       };
-      // loncat tidak wajar -> buang (batas ikut olahraga; motor jauh lebih cepat)
-      if (verdict === "good" && prev && !gap && !np.paused && !prev.paused) {
+      // hanya teleportasi glitch yang dibuang; kecepatan apa pun direkam
+      if (prev && !gap && !np.paused && !prev.paused) {
         const dt = Math.max(1, (t - prev.t) / 1000);
-        if (isImpossibleJump(haversineM(prev, np), dt, maxSpeedFor(sportRef.current))) return;
+        if (isImpossibleJump(haversineM(prev, np), dt)) return;
       }
       const next = [...ptsRef.current, np];
       setPts(next);

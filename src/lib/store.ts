@@ -49,14 +49,6 @@ export function sportLabel(s: Sport): string {
   return "Jalan";
 }
 
-/** Batas kecepatan wajar per olahraga (m/detik) untuk filter glitch GPS. */
-export function maxSpeedFor(sport: Sport): number {
-  if (sport === "motor") return 55; // ~198 km/jam
-  if (sport === "ride") return 25; // ~90 km/jam
-  if (sport === "walk") return 8;
-  return 15; // lari & lainnya ~54 km/jam
-}
-
 /** Ambang auto-pause per olahraga (m/detik). */
 export function pauseSpeedFor(sport: Sport): number {
   if (sport === "motor") return 1.5; // macet/lampu merah tetap kehitung berhenti
