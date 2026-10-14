@@ -161,7 +161,6 @@ export function useTracker(): Tracker {
         setGpsMsg("Mock location terdeteksi — nonaktifkan Fake GPS agar hasil valid.");
         return;
       }
-      if (accuracy && accuracy > MAX_ACC) return; // buang point loncat
 
       const st = stateRef.current;
       if (st === "gps_check") {
