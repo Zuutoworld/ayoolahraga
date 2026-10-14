@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { formatDate, formatDist, formatPace, formatTime } from "../lib/geo";
+import { activityText, openWaShare } from "../lib/share";
 import { sportLabel } from "../lib/store";
 import { useToast } from "../lib/toast";
 import type { Activity } from "../lib/store";
@@ -62,6 +63,15 @@ export default function FeedScreen({
               {a.kudos.length > 0 ? `${a.kudos.length} Kudos` : "Kudos"}
             </button>
             <button className="btn" onClick={() => onOpen(a.id)}>Detail & Peta</button>
+            <button
+              className="btn"
+              onClick={() => {
+                openWaShare(activityText(a, `${location.origin}${location.pathname}`));
+                toast("Membuka WhatsApp untuk berbagi.");
+              }}
+            >
+              Bagikan WA
+            </button>
             {(a.mine || isAdmin) && (
               <button
                 className="btn danger"

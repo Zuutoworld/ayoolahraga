@@ -74,3 +74,5 @@ label { display: block; margin: 8px 0; font-size: 14px; }
 .toast { background: #22242a; border: 1px solid var(--accent); color: var(--text); border-radius: 12px; padding: 12px 14px; font-size: 14px; box-shadow: 0 8px 24px rgba(0,0,0,.5); animation: toast-in .2s ease-out; }
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 .leaflet-container { background: #111; }
+.ayo-marker { background: transparent; border: none; }
+.ayo-pin { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.5); }

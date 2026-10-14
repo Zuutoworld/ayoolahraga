@@ -21,6 +21,7 @@ import {
   sportLabel,
 } from "../src/lib/store";
 import { calcCalories, loadDiets, loadWorkouts } from "../src/lib/guides";
+import { activityText, waShareUrl } from "../src/lib/share";
 import { MOVE_IDS, jointsOf, poseAngles } from "../src/components/MoveArt";
 import {
   buildProgram,
@@ -152,6 +153,19 @@ ok(allFeed.some((a) => a.id === act.id), "hasil tracking muncul di filter Semua"
 const w = logWorkoutActivity("king", "Push Up Pemula", 10, "selesai");
 ok(w.sport === "workout" && w.distanceM === 0 && w.points.length === 0, "logWorkout tanpa GPS");
 ok(sportLabel("workout") === "Latihan" && sportLabel("run") === "Lari", "sportLabel");
+
+// berbagi WA: teks ringkas + URL wa.me valid
+const shareTxt = activityText(act, "https://ayo.example");
+ok(
+  shareTxt.includes("Tes 1 Menit") && shareTxt.includes("king") && shareTxt.includes("https://ayo.example"),
+  "teks berbagi memuat judul, pemilik, tautan",
+  shareTxt,
+);
+const waUrl = waShareUrl(shareTxt);
+ok(
+  waUrl.startsWith("https://wa.me/?text=") && decodeURIComponent(waUrl.slice("https://wa.me/?text=".length)) === shareTxt,
+  "URL wa.me roundtrip utuh",
+);
 
 // PR: 5K 30 mnt vs 5K 25 mnt -> yang tercepat menang (titik rapat biar presisi)
 const mk = (id: string, distM: number, secs: number, start: number) => {

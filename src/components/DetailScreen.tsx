@@ -1,5 +1,6 @@
 import MapView from "./MapView";
 import { formatDate, formatDist, formatPace, formatTime, toGpx } from "../lib/geo";
+import { activityText, openWaShare } from "../lib/share";
 import { useToast } from "../lib/toast";
 import type { Activity } from "../lib/store";
 
@@ -67,6 +68,15 @@ export default function DetailScreen({
         <div className="row">
           <button className="btn" onClick={exportGpx}>Ekspor GPX</button>
           <button className="btn" onClick={() => void shareLink()}>Bagikan ke Teman</button>
+          <button
+            className="btn"
+            onClick={() => {
+              openWaShare(activityText(activity, `${location.origin}${location.pathname}`));
+              toast("Membuka WhatsApp untuk berbagi.");
+            }}
+          >
+            Bagikan WA
+          </button>
         </div>
       </div>
     </div>

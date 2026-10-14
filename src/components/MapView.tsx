@@ -3,6 +3,20 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import type { TrackPoint } from "../lib/geo";
 
+const PERSON_SVG =
+  '<svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><circle cx="12" cy="7" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7v1H4v-1z"/></svg>';
+
+/** Ikon orang (divIcon SVG inline) — pengganti marker default Leaflet yang
+ *  gambarnya 404 saat di-bundle Vite sehingga tampil rusak di HP. */
+function personMarker(color: string): L.DivIcon {
+  return L.divIcon({
+    className: "ayo-marker",
+    html: `<div class="ayo-pin" style="background:${color}">${PERSON_SVG}</div>`,
+    iconSize: [32, 32],
+    iconAnchor: [16, 16],
+  });
+}
+
 export default function MapView({ points, height = 220 }: { points: TrackPoint[]; height?: number }) {
   const divRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -59,8 +73,10 @@ export default function MapView({ points, height = 220 }: { points: TrackPoint[]
         ),
       ).addTo(map);
     }
-    L.marker(latlngs[0]).addTo(map);
-    if (latlngs.length > 1) L.marker(latlngs[latlngs.length - 1]).addTo(map);
+    L.marker(latlngs[0], { icon: personMarker("#2e9e44"), title: "Mulai" }).addTo(map);
+    if (latlngs.length > 1) {
+      L.marker(latlngs[latlngs.length - 1], { icon: personMarker("#fc4c02"), title: "Selesai" }).addTo(map);
+    }
     map.fitBounds(lineRef.current.getBounds().pad(0.2));
   }, [points]);
 
