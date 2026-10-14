@@ -46,6 +46,7 @@ export function classifyGps(
   acc: number,
   speedMps: number | null,
   distFromPrevM: number | null,
+  starveMs = 15_000,
 ): GpsVerdict {
   if (!Number.isFinite(acc)) return "drop";
   if (acc <= 50) {
@@ -60,15 +61,21 @@ export function classifyGps(
     }
     return "good";
   }
-  // 50-100 m: terima darurat kalau sudah >15 dtk tanpa titik bagus (kota/gang sempit).
+  // 50-100 m: terima darurat kalau sudah lama tanpa titik bagus (kota/gang sempit).
   // Tanpa ini garis jadi lurus karena titik yang tersisa terlalu jarang (bug foto 1).
-  if (acc <= 100 && (prevKeptT === null || t - prevKeptT > 15_000)) return "coarse";
+  if (acc <= 100 && (prevKeptT === null || t - prevKeptT > starveMs)) return "coarse";
   return "drop";
 }
 
-/** Lompatan mustahil (>54 km/jam untuk lari/sepeda santai) = glitch GPS. */
-export function isImpossibleJump(distM: number, dtSec: number): boolean {
-  return dtSec >= 1 && distM / dtSec > 15;
+/** Lompatan mustahil = glitch GPS. Batas per olahraga (motor jelas lebih cepat dari lari). */
+export function isImpossibleJump(distM: number, dtSec: number, maxMps = 15): boolean {
+  return dtSec >= 1 && distM / dtSec > maxMps;
+}
+
+/** Kecepatan rata-rata untuk kendaraan (motor): "32.4 km/jam". */
+export function formatSpeed(distM: number, durSec: number): string {
+  if (distM < 50 || durSec < 5) return "—";
+  return `${((distM / durSec) * 3.6).toFixed(1)} km/jam`;
 }
 
 export function formatDist(m: number): string {

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import MapView from "./MapView";
-import { formatDist, formatPace, formatTime, totalDistanceM } from "../lib/geo";
+import { formatDist, formatPace, formatSpeed, formatTime, totalDistanceM } from "../lib/geo";
 import { sportLabel } from "../lib/store";
 import { useToast } from "../lib/toast";
 import type { Sport, Privacy } from "../lib/store";
@@ -8,7 +8,7 @@ import type { FinishedResult, useTracker } from "../lib/useTracker";
 
 type T = ReturnType<typeof useTracker>;
 
-const SPORTS: Sport[] = ["run", "ride", "walk"];
+const SPORTS: Sport[] = ["run", "ride", "walk", "motor"];
 
 export default function TrackScreen({
   tracker,
@@ -102,7 +102,11 @@ export default function TrackScreen({
         <div className="stats-grid">
           <div><span>Jarak</span><b>{formatDist(tracker.distanceM)}</b></div>
           <div><span>Waktu</span><b>{formatTime(tracker.elapsedSec)}</b></div>
-          <div><span>Pace</span><b>{pace}/km</b></div>
+          {tracker.sport === "motor" ? (
+            <div><span>Kecepatan</span><b>{formatSpeed(tracker.distanceM, tracker.elapsedSec)}</b></div>
+          ) : (
+            <div><span>Pace</span><b>{pace}/km</b></div>
+          )}
         </div>
         {s === "paused" && (
           <div className="banner">{tracker.autoPaused ? "Jeda otomatis — tidak ada pergerakan terdeteksi." : "Tracking dijeda."}</div>

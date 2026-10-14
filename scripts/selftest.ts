@@ -5,6 +5,7 @@ import {
   classifyGps,
   formatDist,
   formatPace,
+  formatSpeed,
   formatTime,
   haversineM,
   isImpossibleJump,
@@ -17,6 +18,8 @@ import {
   calcPRs,
   loadActivities,
   logWorkoutActivity,
+  maxSpeedFor,
+  pauseSpeedFor,
   saveActivities,
   sportLabel,
 } from "../src/lib/store";
@@ -112,6 +115,13 @@ ok(classifyGps(null, 1000, 150, null, null) === "drop", "akurasi >100 dibuang");
 ok(classifyGps(null, 1000, NaN, null, null) === "drop", "akurasi invalid dibuang");
 ok(isImpossibleJump(200, 1) === true, "lompatan 200 m/dtk mustahil");
 ok(isImpossibleJump(10, 2) === false, "10 m/2 dtk wajar");
+ok(isImpossibleJump(20, 1) === true && isImpossibleJump(20, 1, 55) === false, "batas ikut olahraga (motor 55)");
+ok(classifyGps(0, 6_000, 80, 12, 70, 5_000) === "coarse", "motor: starving 5 dtk cukup");
+ok(classifyGps(0, 6_000, 80, 12, 70) === "drop", "default: starving 15 dtk");
+ok(maxSpeedFor("motor") === 55 && maxSpeedFor("run") === 15 && maxSpeedFor("ride") === 25, "maxSpeed per olahraga");
+ok(pauseSpeedFor("motor") === 1.5 && pauseSpeedFor("run") === 0.5, "ambang pause per olahraga");
+ok(formatSpeed(10000, 1800) === "20.0 km/jam", "formatSpeed 10K/30mnt");
+ok(formatSpeed(10, 3) === "—", "formatSpeed invalid");
 
 /* ---------- store: alur tracking -> simpan -> feed ---------- */
 const seeded = loadActivities();
@@ -155,6 +165,10 @@ ok(allFeed.some((a) => a.id === act.id), "hasil tracking muncul di filter Semua"
 const w = logWorkoutActivity("king", "Push Up Pemula", 10, "selesai");
 ok(w.sport === "workout" && w.distanceM === 0 && w.points.length === 0, "logWorkout tanpa GPS");
 ok(sportLabel("workout") === "Latihan" && sportLabel("run") === "Lari", "sportLabel");
+ok(sportLabel("motor") === "Motor", "sportLabel motor");
+const mAct = buildActivity("king", "motor", "Tes Motor", now - 600_000, now, pts, "friends");
+ok(mAct.sport === "motor" && mAct.distanceM > 0, "aktivitas motor valid");
+ok(activityText(mAct, "https://ayo.example").includes("km/jam"), "teks motor pakai kecepatan");
 
 // berbagi WA: teks ringkas + URL wa.me valid
 const shareTxt = activityText(act, "https://ayo.example");

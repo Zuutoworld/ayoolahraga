@@ -1,4 +1,4 @@
-import { formatDate, formatDist, formatPace, formatTime } from "./geo";
+import { formatDate, formatDist, formatPace, formatSpeed, formatTime } from "./geo";
 import type { TrackPoint } from "./geo";
 import type { Activity } from "./store";
 import { activityText, openWaShare } from "./share";
@@ -247,11 +247,18 @@ export function drawShareCard(a: Activity, mapBg?: MapBg | null): Promise<Blob> 
 
   // statistik
   const statsY = mapY + mapH + 84;
-  const cols = [
-    { label: "Jarak", value: formatDist(a.distanceM) },
-    { label: "Waktu", value: formatTime(a.movingSec) },
-    { label: "Pace", value: `${formatPace(a.distanceM, a.movingSec)}/km` },
-  ];
+  const cols =
+    a.sport === "motor"
+      ? [
+          { label: "Jarak", value: formatDist(a.distanceM) },
+          { label: "Waktu", value: formatTime(a.movingSec) },
+          { label: "Kecepatan", value: formatSpeed(a.distanceM, a.movingSec) },
+        ]
+      : [
+          { label: "Jarak", value: formatDist(a.distanceM) },
+          { label: "Waktu", value: formatTime(a.movingSec) },
+          { label: "Pace", value: `${formatPace(a.distanceM, a.movingSec)}/km` },
+        ];
   cols.forEach((c, i) => {
     const x = 60 + (i * (W - 120)) / 3;
     ctx.fillStyle = "#a7a7ad";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import MapView from "./MapView";
-import { formatDate, formatDist, formatPace, formatTime, toGpx } from "../lib/geo";
+import { formatDate, formatDist, formatPace, formatSpeed, formatTime, toGpx } from "../lib/geo";
 import { shareActivityImage } from "../lib/shareCard";
 import { useToast } from "../lib/toast";
 import type { Activity } from "../lib/store";
@@ -53,7 +53,11 @@ export default function DetailScreen({
         <div className="stats-grid">
           <div><span>Jarak</span><b>{formatDist(activity.distanceM)}</b></div>
           <div><span>Bergerak</span><b>{formatTime(activity.movingSec)}</b></div>
-          <div><span>Pace</span><b>{formatPace(activity.distanceM, activity.movingSec)}/km</b></div>
+          {activity.sport === "motor" ? (
+            <div><span>Kecepatan</span><b>{formatSpeed(activity.distanceM, activity.movingSec)}</b></div>
+          ) : (
+            <div><span>Pace</span><b>{formatPace(activity.distanceM, activity.movingSec)}/km</b></div>
+          )}
         </div>
         <MapView points={activity.points} height={280} />
         {activity.points.length > 0 && <h3>Split per Kilometer</h3>}

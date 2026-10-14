@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { formatDate, formatDist, formatPace, formatTime } from "../lib/geo";
+import { formatDate, formatDist, formatPace, formatSpeed, formatTime } from "../lib/geo";
 import { shareActivityImage } from "../lib/shareCard";
 import { sportLabel } from "../lib/store";
 import { useToast } from "../lib/toast";
@@ -56,7 +56,11 @@ export default function FeedScreen({
           <div className="stats-grid small">
             <div><span>Jarak</span><b>{formatDist(a.distanceM)}</b></div>
             <div><span>Waktu</span><b>{formatTime(a.movingSec)}</b></div>
-            <div><span>Pace</span><b>{formatPace(a.distanceM, a.movingSec)}/km</b></div>
+            {a.sport === "motor" ? (
+              <div><span>Kecepatan</span><b>{formatSpeed(a.distanceM, a.movingSec)}</b></div>
+            ) : (
+              <div><span>Pace</span><b>{formatPace(a.distanceM, a.movingSec)}/km</b></div>
+            )}
           </div>
           {a.desc && <p>{a.desc}</p>}
           <div className="row">

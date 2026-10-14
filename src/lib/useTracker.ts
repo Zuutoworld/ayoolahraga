@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { classifyGps, haversineM, isImpossibleJump, totalDistanceM } from "./geo";
 import type { GpsVerdict, TrackPoint } from "./geo";
+import { maxSpeedFor, pauseSpeedFor } from "./store";
+import type { Sport } from "./store";
 import { loadDraft, saveDraft } from "./store";
-import type { Draft, Sport } from "./store";
+import type { Draft } from "./store";
 
 export type TrackState =
   | "idle"
@@ -42,7 +44,6 @@ export interface Tracker {
 }
 
 const GAP_MS = 30_000;
-const AUTO_PAUSE_SPEED = 0.5; // m/s
 const AUTO_PAUSE_MS = 10_000;
 
 export function useTracker(): Tracker {
@@ -103,6 +104,11 @@ export function useTracker(): Tracker {
   useEffect(() => {
     autoRef.current = autoPaused;
   }, [autoPaused]);
+
+  const sportRef = useRef<Sport>("run");
+  useEffect(() => {
+    sportRef.current = sport;
+  }, [sport]);
 
   // autosave draft tiap 10 detik biar selamat kalau app ke-kill
   useEffect(() => {
@@ -185,7 +191,9 @@ export function useTracker(): Tracker {
         const dist = prev
           ? haversineM(prev, { lat: latitude, lng: longitude, t, acc })
           : null;
-        verdict = classifyGps(prev ? prev.t : null, t, acc, speed ?? null, dist);
+        // motor lebih cepat + butuh titik darurat lebih agresif (5 dtk, bukan 15)
+        const starveMs = sportRef.current === "motor" ? 5_000 : 15_000;
+        verdict = classifyGps(prev ? prev.t : null, t, acc, speed ?? null, dist, starveMs);
       }
       if (verdict === "drop") return;
       const np: TrackPoint = {
@@ -197,24 +205,25 @@ export function useTracker(): Tracker {
         gap,
         coarse: verdict === "coarse",
       };
-      // loncat tidak wajar -> buang (titik coarse dikecualikan karena memang noisy)
+      // loncat tidak wajar -> buang (batas ikut olahraga; motor jauh lebih cepat)
       if (verdict === "good" && prev && !gap && !np.paused && !prev.paused) {
         const dt = Math.max(1, (t - prev.t) / 1000);
-        if (isImpossibleJump(haversineM(prev, np), dt)) return;
+        if (isImpossibleJump(haversineM(prev, np), dt, maxSpeedFor(sportRef.current))) return;
       }
       const next = [...ptsRef.current, np];
       setPts(next);
 
-      // auto-pause: diam < 0.5 m/s selama 10 detik
+      // auto-pause: diam di bawah ambang selama 10 detik (ambang ikut olahraga)
       const spd = speed ?? null;
-      if (st === "tracking" && spd !== null && spd < AUTO_PAUSE_SPEED) {
+      const pauseAt = pauseSpeedFor(sportRef.current);
+      if (st === "tracking" && spd !== null && spd < pauseAt) {
         if (!stillSince.current) stillSince.current = t;
         if (t - stillSince.current > AUTO_PAUSE_MS) {
           pauseStart.current = Date.now();
           setAutoPaused(true);
           setState("paused");
         }
-      } else if (spd !== null && spd >= 1) {
+      } else if (spd !== null && spd >= pauseAt + 1) {
         stillSince.current = null;
         if (st === "paused" && autoRef.current) {
           // auto-resume kalau user jalan lagi

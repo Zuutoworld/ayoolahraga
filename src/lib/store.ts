@@ -1,7 +1,7 @@
 import { calcSplits, routeHash, totalDistanceM } from "./geo";
 import type { Split, TrackPoint } from "./geo";
 
-export type Sport = "run" | "ride" | "walk" | "workout";
+export type Sport = "run" | "ride" | "walk" | "workout" | "motor";
 export type Privacy = "friends" | "private" | "public";
 
 export interface Comment {
@@ -45,7 +45,22 @@ export function sportLabel(s: Sport): string {
   if (s === "run") return "Lari";
   if (s === "ride") return "Sepeda";
   if (s === "workout") return "Latihan";
+  if (s === "motor") return "Motor";
   return "Jalan";
+}
+
+/** Batas kecepatan wajar per olahraga (m/detik) untuk filter glitch GPS. */
+export function maxSpeedFor(sport: Sport): number {
+  if (sport === "motor") return 55; // ~198 km/jam
+  if (sport === "ride") return 25; // ~90 km/jam
+  if (sport === "walk") return 8;
+  return 15; // lari & lainnya ~54 km/jam
+}
+
+/** Ambang auto-pause per olahraga (m/detik). */
+export function pauseSpeedFor(sport: Sport): number {
+  if (sport === "motor") return 1.5; // macet/lampu merah tetap kehitung berhenti
+  return 0.5;
 }
 export function uid(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
