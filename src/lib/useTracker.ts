@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { haversineM, totalDistanceM } from "./geo";
-import type { TrackPoint } from "./geo";
+import { classifyGps, haversineM, isImpossibleJump, totalDistanceM } from "./geo";
+import type { GpsVerdict, TrackPoint } from "./geo";
 import { loadDraft, saveDraft } from "./store";
 import type { Draft, Sport } from "./store";
 
@@ -41,7 +41,6 @@ export interface Tracker {
   clearDraft: () => void;
 }
 
-const MAX_ACC = 50; // buang point akurasi buruk
 const GAP_MS = 30_000;
 const AUTO_PAUSE_SPEED = 0.5; // m/s
 const AUTO_PAUSE_MS = 10_000;
@@ -168,29 +167,41 @@ export function useTracker(): Tracker {
       if (st === "gps_check") {
         if (accuracy && accuracy <= 20) {
           setGpsOk(true);
-          setGpsMsg(`GPS bagus (±${Math.round(accuracy)}m). Siap gas.`);
+          setGpsMsg(`GPS baik (±${Math.round(accuracy)} m). Siap memulai.`);
         } else {
-          setGpsMsg(`Akurasi ±${Math.round(accuracy ?? 999)}m — cari langit terbuka…`);
+          setGpsMsg(`Akurasi ±${Math.round(accuracy ?? 999)} m — cari area langit terbuka…`);
         }
         return;
       }
       if (st !== "tracking" && st !== "paused") return;
 
+      const acc = accuracy ?? 999;
       const prev = ptsRef.current[ptsRef.current.length - 1];
       const gap = prev ? t - prev.t > GAP_MS : false;
+      let verdict: GpsVerdict;
+      if (st === "paused") {
+        // penanda batas jeda: terima selama akurasi masuk akal (tidak dihitung ke jarak)
+        verdict = acc <= 100 ? "good" : "drop";
+      } else {
+        const dist = prev
+          ? haversineM(prev, { lat: latitude, lng: longitude, t, acc })
+          : null;
+        verdict = classifyGps(prev ? prev.t : null, t, acc, speed ?? null, dist);
+      }
+      if (verdict === "drop") return;
       const np: TrackPoint = {
         lat: latitude,
         lng: longitude,
         t,
-        acc: accuracy ?? 99,
+        acc,
         paused: st === "paused",
         gap,
+        coarse: verdict === "coarse",
       };
-      // loncat tidak wajar (>100m dalam 1 detik) -> buang
-      if (prev && !gap && !np.paused && !prev.paused) {
+      // loncat tidak wajar -> buang (titik coarse dikecualikan karena memang noisy)
+      if (verdict === "good" && prev && !gap && !np.paused && !prev.paused) {
         const dt = Math.max(1, (t - prev.t) / 1000);
-        const dd = haversineM(prev, np);
-        if (dd / dt > 15) return; // >54 km/jam lari = mustahil, buang
+        if (isImpossibleJump(haversineM(prev, np), dt)) return;
       }
       const next = [...ptsRef.current, np];
       setPts(next);

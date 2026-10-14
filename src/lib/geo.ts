@@ -5,6 +5,7 @@ export interface TrackPoint {
   acc: number; // accuracy meters
   paused?: boolean;
   gap?: boolean;
+  coarse?: boolean; // akurasi 50-100 m, direkam darurat saat sinyal lama hilang
   mock?: boolean;
 }
 
@@ -35,6 +36,39 @@ export function totalDistanceM(points: TrackPoint[]): number {
     d += haversineM(q, p);
   }
   return d;
+}
+
+/** Klasifikasi titik GPS baru. pure function agar bisa di-unit-test. */
+export type GpsVerdict = "good" | "coarse" | "drop";
+export function classifyGps(
+  prevKeptT: number | null,
+  t: number,
+  acc: number,
+  speedMps: number | null,
+  distFromPrevM: number | null,
+): GpsVerdict {
+  if (!Number.isFinite(acc)) return "drop";
+  if (acc <= 50) {
+    // jitter clamp: nyaris diam + geser di bawah setengah akurasi = drift, bukan gerak
+    if (
+      distFromPrevM !== null &&
+      speedMps !== null &&
+      speedMps < 1 &&
+      distFromPrevM < Math.max(4, acc * 0.5)
+    ) {
+      return "drop";
+    }
+    return "good";
+  }
+  // 50-100 m: terima darurat kalau sudah >15 dtk tanpa titik bagus (kota/gang sempit).
+  // Tanpa ini garis jadi lurus karena titik yang tersisa terlalu jarang (bug foto 1).
+  if (acc <= 100 && (prevKeptT === null || t - prevKeptT > 15_000)) return "coarse";
+  return "drop";
+}
+
+/** Lompatan mustahil (>54 km/jam untuk lari/sepeda santai) = glitch GPS. */
+export function isImpossibleJump(distM: number, dtSec: number): boolean {
+  return dtSec >= 1 && distM / dtSec > 15;
 }
 
 export function formatDist(m: number): string {

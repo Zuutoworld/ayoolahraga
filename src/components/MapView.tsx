@@ -7,6 +7,7 @@ export default function MapView({ points, height = 220 }: { points: TrackPoint[]
   const divRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lineRef = useRef<L.Polyline | null>(null);
+  const dotsRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
     if (!divRef.current || mapRef.current) return;
@@ -32,6 +33,10 @@ export default function MapView({ points, height = 220 }: { points: TrackPoint[]
       lineRef.current.remove();
       lineRef.current = null;
     }
+    if (dotsRef.current) {
+      dotsRef.current.remove();
+      dotsRef.current = null;
+    }
     // hapus marker lama
     map.eachLayer((l) => {
       if (l instanceof L.Marker) l.remove();
@@ -39,6 +44,21 @@ export default function MapView({ points, height = 220 }: { points: TrackPoint[]
     if (clean.length === 0) return;
     const latlngs = clean.map((p) => [p.lat, p.lng]) as [number, number][];
     lineRef.current = L.polyline(latlngs, { color: "#fc4c02", weight: 4 }).addTo(map);
+    // titik putih = akurasi rendah (50-100 m), direkam darurat agar garis ikut belokan
+    const coarse = clean.filter((p) => p.coarse);
+    if (coarse.length > 0) {
+      dotsRef.current = L.layerGroup(
+        coarse.map((p) =>
+          L.circleMarker([p.lat, p.lng], {
+            radius: 4,
+            color: "#ffffff",
+            weight: 2,
+            fillColor: "#fc4c02",
+            fillOpacity: 1,
+          }),
+        ),
+      ).addTo(map);
+    }
     L.marker(latlngs[0]).addTo(map);
     if (latlngs.length > 1) L.marker(latlngs[latlngs.length - 1]).addTo(map);
     map.fitBounds(lineRef.current.getBounds().pad(0.2));

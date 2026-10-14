@@ -2,10 +2,12 @@
    Menguji alur yang dilaporkan rusak: tracking -> simpan -> muncul di Feed. */
 import {
   calcSplits,
+  classifyGps,
   formatDist,
   formatPace,
   formatTime,
   haversineM,
+  isImpossibleJump,
   routeHash,
   toGpx,
   totalDistanceM,
@@ -19,6 +21,17 @@ import {
   sportLabel,
 } from "../src/lib/store";
 import { calcCalories, loadDiets, loadWorkouts } from "../src/lib/guides";
+import {
+  buildProgram,
+  clearProgram,
+  isAllDone,
+  loadLog,
+  loadProgram,
+  markLogged,
+  saveProgram,
+  tasksFor,
+  toggleTask,
+} from "../src/lib/program";
 import {
   currentUser,
   deleteUser,
@@ -85,6 +98,17 @@ ok(routeHash(run2k) === routeHash(run2k), "routeHash deterministik");
 ok(routeHash(run2k) !== routeHash([...run2k].reverse()), "routeHash beda rute beda hash");
 ok(toGpx("Tes", run2k.slice(0, 2)).includes("<trkpt"), "toGpx berisi trkpt");
 
+// filter GPS: titik bagus lolos, drift diam dibuang, darurat coarse saat starving
+ok(classifyGps(null, 1000, 8, null, null) === "good", "gps bagus diterima");
+ok(classifyGps(0, 60_000, 8, 0.2, 2) === "drop", "drift diam dibuang (jitter clamp)");
+ok(classifyGps(0, 60_000, 8, 2.5, 30) === "good", "gerak nyata tidak kena clamp");
+ok(classifyGps(0, 60_000, 80, 1.5, 40) === "coarse", "akurasi 80 starving 60 dtk -> coarse");
+ok(classifyGps(55_000, 60_000, 80, 1.5, 40) === "drop", "akurasi 80 tapi baru 5 dtk -> drop");
+ok(classifyGps(null, 1000, 150, null, null) === "drop", "akurasi >100 dibuang");
+ok(classifyGps(null, 1000, NaN, null, null) === "drop", "akurasi invalid dibuang");
+ok(isImpossibleJump(200, 1) === true, "lompatan 200 m/dtk mustahil");
+ok(isImpossibleJump(10, 2) === false, "10 m/2 dtk wajar");
+
 /* ---------- store: alur tracking -> simpan -> feed ---------- */
 const seeded = loadActivities();
 ok(seeded.length === 2, "seed awal 2 aktivitas contoh");
@@ -148,6 +172,36 @@ ok(loadWorkouts().length >= 6, "seed >= 6 panduan latihan");
 ok(loadDiets().length >= 4, "seed >= 4 panduan diet");
 const cal = calcCalories(79, 170, 25, true, 1.375);
 ok(cal.bmr === 1733 && cal.tdee === 2382 && cal.cut === 1882, "kalkulator kalori 79kg", cal);
+
+/* ---------- program harian ---------- */
+const prog = buildProgram({ weightKg: 79, heightCm: 161, age: 23, male: true, goal: "diet" });
+ok(prog.targetKcal === 1819 && prog.proteinMin === 126 && prog.proteinMax === 158, "program diet: target + protein", prog);
+const progPostur = buildProgram({ weightKg: 79, heightCm: 161, age: 23, male: true, goal: "postur" });
+ok(progPostur.targetKcal === 2319, "program postur: maintenance", progPostur);
+
+const monday = new Date(2026, 9, 12); // Senin
+const sunday = new Date(2026, 9, 11); // Minggu
+const tMon = tasksFor(prog, monday);
+const tMon2 = tasksFor(prog, monday);
+ok(JSON.stringify(tMon) === JSON.stringify(tMon2), "tugas deterministik per tanggal");
+ok(tMon.some((t) => t.id === "strength") && tMon.some((t) => t.id === "walk30"), "senin diet: strength + jalan");
+const tSun = tasksFor(prog, sunday);
+ok(tSun.some((t) => t.id === "walk20") && !tSun.some((t) => t.id === "strength"), "minggu: jalan santai tanpa strength");
+const tPos = tasksFor(progPostur, monday);
+ok(tPos.some((t) => t.id === "circuit") && tPos.some((t) => t.id === "habit-sit"), "postur: sirkuit + kebiasaan duduk");
+
+saveProgram("u1", prog);
+ok(loadProgram("u1")?.targetKcal === 1819, "program tersimpan & dimuat");
+let lg = loadLog("u1", monday);
+ok(lg.done.length === 0 && lg.logged === false, "log hari baru kosong");
+for (const t of tMon) lg = toggleTask("u1", t.id, monday);
+ok(isAllDone(tMon, lg) === true, "semua tugas selesai terdeteksi");
+lg = markLogged("u1", monday);
+ok(loadLog("u1", monday).logged === true, "status catat-feed tersimpan");
+const nextDay = loadLog("u1", new Date(2026, 9, 13));
+ok(nextDay.done.length === 0 && nextDay.logged === false, "hari baru reset otomatis");
+clearProgram("u1");
+ok(loadProgram("u1") === null, "program bisa dihentikan");
 
 /* ---------- auth ---------- */
 const users0 = listUsers();

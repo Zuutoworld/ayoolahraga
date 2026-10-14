@@ -183,7 +183,16 @@ function Shell() {
             }
           />
         ) : tab === "guides" ? (
-          <GuidesScreen isAdmin={isAdmin} user={user} onUserPatch={patchUser} onLogWorkout={logWorkout} />
+          <GuidesScreen
+            isAdmin={isAdmin}
+            user={user}
+            onUserPatch={patchUser}
+            onLogWorkout={logWorkout}
+            onLogProgram={(minutes, title, desc) => {
+              const act = logWorkoutActivity(user.username, title, minutes, desc);
+              setActivities((prev) => [act, ...prev]);
+            }}
+          />
         ) : tab === "admin" && isAdmin ? (
           <AdminScreen me={user} activities={activities} onDeleteActivity={(id) => setActivities((p) => p.filter((a) => a.id !== id))} />
         ) : (

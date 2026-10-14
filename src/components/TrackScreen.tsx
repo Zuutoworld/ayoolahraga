@@ -95,6 +95,8 @@ export default function TrackScreen({
   if (s === "tracking" || s === "paused") {
     const pace = formatPace(tracker.distanceM, tracker.elapsedSec);
     const noSignal = tracker.points.length === 0 && tracker.elapsedSec >= 10;
+    const lastAcc = tracker.points.length > 0 ? tracker.points[tracker.points.length - 1].acc : null;
+    const coarseCount = tracker.points.filter((p) => p.coarse).length;
     return (
       <div>
         <div className="stats-grid">
@@ -110,8 +112,13 @@ export default function TrackScreen({
             Belum ada titik GPS yang terekam. Pastikan izin lokasi aktif dan Anda berada di area terbuka.
           </div>
         )}
+        {lastAcc !== null && lastAcc > 50 && !noSignal && (
+          <div className="banner warn">
+            Sinyal GPS lemah (±{Math.round(lastAcc)} m). Garis bisa kurang presisi — pindah ke area terbuka.
+          </div>
+        )}
         <MapView points={tracker.points} height={260} />
-        <p className="muted">{tracker.points.length} titik GPS • Titik dengan akurasi di atas 50 m dibuang otomatis • jeda di atas 30 detik tidak dihitung</p>
+        <p className="muted">{tracker.points.length} titik GPS • sinyal {lastAcc !== null ? `±${Math.round(lastAcc)} m` : "—"}{coarseCount > 0 ? ` • ${coarseCount} titik akurasi rendah (putih)` : ""} • jeda di atas 30 detik tidak dihitung</p>
         <div className="row">
           {s === "tracking" ? (
             <button className="btn" onClick={() => tracker.pause()}>Jeda</button>

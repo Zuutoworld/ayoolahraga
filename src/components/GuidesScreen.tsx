@@ -9,6 +9,7 @@ import {
   uid,
 } from "../lib/guides";
 import { useToast } from "../lib/toast";
+import ProgramScreen from "./ProgramScreen";
 import type { DietGuide, WorkoutGuide } from "../lib/guides";
 import type { User } from "../lib/auth";
 
@@ -20,13 +21,15 @@ export default function GuidesScreen({
   user,
   onUserPatch,
   onLogWorkout,
+  onLogProgram,
 }: {
   isAdmin: boolean;
   user: User;
   onUserPatch: (p: Partial<User>) => void;
   onLogWorkout: (g: WorkoutGuide) => void;
+  onLogProgram: (minutes: number, title: string, desc: string) => void;
 }) {
-  const [tab, setTab] = useState<"workout" | "diet" | "calc">("workout");
+  const [tab, setTab] = useState<"workout" | "diet" | "calc" | "program">("workout");
   const [workouts, setWorkouts] = useState<WorkoutGuide[]>(() => loadWorkouts());
   const [diets, setDiets] = useState<DietGuide[]>(() => loadDiets());
   const [cat, setCat] = useState<string>("semua");
@@ -64,7 +67,12 @@ export default function GuidesScreen({
         <button className={tab === "workout" ? "btn primary" : "btn"} onClick={() => setTab("workout")}>Latihan</button>
         <button className={tab === "diet" ? "btn primary" : "btn"} onClick={() => setTab("diet")}>Diet</button>
         <button className={tab === "calc" ? "btn primary" : "btn"} onClick={() => setTab("calc")}>Kalkulator</button>
+        <button className={tab === "program" ? "btn primary" : "btn"} onClick={() => setTab("program")}>Program</button>
       </div>
+
+      {tab === "program" && (
+        <ProgramScreen user={user} onUserPatch={onUserPatch} onLogProgram={onLogProgram} />
+      )}
 
       {tab === "workout" && (
         <div>

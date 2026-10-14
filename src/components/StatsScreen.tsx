@@ -30,6 +30,9 @@ export default function StatsScreen({
   const [bw, setBw] = useState<number | "">(user.weightKg ?? "");
   const [bh, setBh] = useState<number | "">(user.heightCm ?? "");
   const [bAge, setBAge] = useState<number | "">(user.age ?? "");
+  const [editingBody, setEditingBody] = useState(
+    !(typeof user.weightKg === "number" && typeof user.heightCm === "number" && typeof user.age === "number"),
+  );
   const toast = useToast();
 
   useEffect(() => {
@@ -127,33 +130,67 @@ export default function StatsScreen({
 
       <div className="card">
         <h2>Data Badan</h2>
-        {bmi !== null ? (
-          <div className="stats-grid">
-            <div><span>Berat</span><b>{bw} kg</b></div>
-            <div><span>Tinggi</span><b>{bh} cm</b></div>
-            <div><span>BMI</span><b>{bmi.toFixed(1)}</b></div>
-          </div>
+        {!editingBody && bmi !== null ? (
+          <>
+            <div className="stats-grid">
+              <div><span>Berat</span><b>{bw} kg</b></div>
+              <div><span>Tinggi</span><b>{bh} cm</b></div>
+              <div><span>BMI</span><b>{bmi.toFixed(1)}</b></div>
+            </div>
+            <div className="row">
+              <button className="btn" onClick={() => setEditingBody(true)}>Ubah</button>
+              <button
+                className="btn danger"
+                onClick={() => {
+                  if (!confirm("Hapus data badan dari profil?")) return;
+                  onPatchUser({ weightKg: undefined, heightCm: undefined, age: undefined });
+                  setEditingBody(true);
+                  toast("Data badan dihapus dari profil.");
+                }}
+              >
+                Hapus
+              </button>
+            </div>
+          </>
         ) : (
-          <p className="muted">Belum ada data badan. Isi di bawah ini, atau otomatis terisi setelah memakai Kalkulator di tab Panduan.</p>
+          <>
+            {bmi === null && (
+              <p className="muted">Belum ada data badan. Isi di bawah ini, atau otomatis terisi setelah memakai Kalkulator di tab Panduan.</p>
+            )}
+            <div className="grid2">
+              <label>BB (kg)<input type="number" placeholder="Contoh 70" value={bw} onChange={(e) => setBw(e.target.value === "" ? "" : Number(e.target.value))} /></label>
+              <label>TB (cm)<input type="number" placeholder="Contoh 170" value={bh} onChange={(e) => setBh(e.target.value === "" ? "" : Number(e.target.value))} /></label>
+              <label>Umur<input type="number" placeholder="Contoh 25" value={bAge} onChange={(e) => setBAge(e.target.value === "" ? "" : Number(e.target.value))} /></label>
+            </div>
+            <div className="row">
+              <button
+                className="btn primary"
+                disabled={!bodyValid}
+                onClick={() => {
+                  if (!bodyValid) return;
+                  onPatchUser({ weightKg: bw as number, heightCm: bh as number, age: bAge as number });
+                  setEditingBody(false);
+                  toast(`Data badan tersimpan: ${bw} kg, ${bh} cm, ${bAge} tahun.`);
+                }}
+              >
+                Simpan Data Badan
+              </button>
+              {bmi !== null && (
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setBw(user.weightKg ?? "");
+                    setBh(user.heightCm ?? "");
+                    setBAge(user.age ?? "");
+                    setEditingBody(false);
+                  }}
+                >
+                  Batal
+                </button>
+              )}
+            </div>
+          </>
         )}
-        <div className="grid2">
-          <label>BB (kg)<input type="number" placeholder="Contoh 70" value={bw} onChange={(e) => setBw(e.target.value === "" ? "" : Number(e.target.value))} /></label>
-          <label>TB (cm)<input type="number" placeholder="Contoh 170" value={bh} onChange={(e) => setBh(e.target.value === "" ? "" : Number(e.target.value))} /></label>
-          <label>Umur<input type="number" placeholder="Contoh 25" value={bAge} onChange={(e) => setBAge(e.target.value === "" ? "" : Number(e.target.value))} /></label>
-        </div>
-        <div className="row">
-          <button
-            className="btn primary"
-            disabled={!bodyValid}
-            onClick={() => {
-              if (!bodyValid) return;
-              onPatchUser({ weightKg: bw as number, heightCm: bh as number, age: bAge as number });
-              toast(`Data badan tersimpan: ${bw} kg, ${bh} cm, ${bAge} tahun.`);
-            }}
-          >
-            Simpan Data Badan
-          </button>
-        </div>
         <p className="muted">Data ini dipakai Kalkulator dan Panduan Diet agar target sesuai badan Anda.</p>
       </div>
 
