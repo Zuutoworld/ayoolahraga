@@ -22,7 +22,8 @@ import {
 } from "../src/lib/store";
 import { calcCalories, loadDiets, loadWorkouts } from "../src/lib/guides";
 import { activityText, waShareUrl } from "../src/lib/share";
-import { layoutRoute } from "../src/lib/shareCard";
+import { coverTiles, fitZoom, mercPx, viewOrigin } from "../src/lib/slippy";
+import { layoutRoute, layoutRouteMerc } from "../src/lib/shareCard";
 import { MOVE_IDS, jointsOf, poseAngles } from "../src/components/MoveArt";
 import {
   buildProgram,
@@ -179,6 +180,27 @@ ok(
   "semua titik di dalam padding",
 );
 ok(!!fit && fit[0].y > fit[fit.length - 1].y, "arah utara tetap di atas");
+
+// matematika peta OSM: Jakarta z15 -> tile yang benar, cakupan pas, proyeksi di kanvas
+const jkt = mercPx(-6.2, 106.8, 15);
+ok(Math.floor(jkt.x / 256) === 26105 && Math.floor(jkt.y / 256) === 16949, "tile Jakarta z15", jkt);
+const b2k = {
+  minLat: Math.min(...run2k.map((p) => p.lat)),
+  maxLat: Math.max(...run2k.map((p) => p.lat)),
+  minLng: Math.min(...run2k.map((p) => p.lng)),
+  maxLng: Math.max(...run2k.map((p) => p.lng)),
+};
+const z2k = fitZoom(b2k, 960, 560, 60);
+ok(z2k >= 10 && z2k <= 18, "fitZoom wajar untuk rute 2 km", z2k);
+const tiles2k = coverTiles(b2k, z2k);
+ok(tiles2k.length >= 1 && tiles2k.length <= 30, "jumlah tile wajar", tiles2k.length);
+const org = viewOrigin(b2k, z2k, 960, 560);
+const mercPts = layoutRouteMerc(run2k, { canvas: null as never, z: z2k, ox: org.ox, oy: org.oy });
+ok(
+  mercPts.length === run2k.length &&
+    mercPts.every((p) => p.x >= -1 && p.x <= 961 && p.y >= -1 && p.y <= 561),
+  "rute mercator pas di panel peta",
+);
 
 // PR: 5K 30 mnt vs 5K 25 mnt -> yang tercepat menang (titik rapat biar presisi)
 const mk = (id: string, distM: number, secs: number, start: number) => {

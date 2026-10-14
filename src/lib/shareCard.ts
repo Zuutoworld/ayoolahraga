@@ -2,10 +2,91 @@ import { formatDate, formatDist, formatPace, formatTime } from "./geo";
 import type { TrackPoint } from "./geo";
 import type { Activity } from "./store";
 import { activityText, openWaShare } from "./share";
+import { coverTiles, fitZoom, mercPx, viewOrigin } from "./slippy";
+import type { LatLngBounds } from "./slippy";
 
 export interface RoutePt {
   x: number;
   y: number;
+}
+
+export interface MapBg {
+  canvas: HTMLCanvasElement;
+  z: number;
+  ox: number;
+  oy: number;
+}
+
+function routeBounds(points: TrackPoint[]): LatLngBounds | null {
+  const clean = points.filter((p) => !p.paused && !p.gap);
+  if (clean.length < 2) return null;
+  const lats = clean.map((p) => p.lat);
+  const lngs = clean.map((p) => p.lng);
+  const b: LatLngBounds = {
+    minLat: Math.min(...lats),
+    maxLat: Math.max(...lats),
+    minLng: Math.min(...lngs),
+    maxLng: Math.max(...lngs),
+  };
+  if (b.maxLat - b.minLat < 1e-7 && b.maxLng - b.minLng < 1e-7) return null;
+  return b;
+}
+
+function loadTile(z: number, x: number, y: number, timeoutMs: number): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    const to = window.setTimeout(() => resolve(null), timeoutMs);
+    img.onload = () => {
+      window.clearTimeout(to);
+      resolve(img);
+    };
+    img.onerror = () => {
+      window.clearTimeout(to);
+      resolve(null);
+    };
+    img.src = `https://tile.openstreetmap.org/${z}/${x}/${y}.png`;
+  });
+}
+
+/** Render background peta OSM area rute (butuh internet). null bila gagal → fallback gelap. */
+export async function renderMapBackground(
+  points: TrackPoint[],
+  w: number,
+  h: number,
+): Promise<MapBg | null> {
+  const b = routeBounds(points);
+  if (!b) return null;
+  const z = fitZoom(b, w, h, 60);
+  const tiles = coverTiles(b, z);
+  if (tiles.length === 0) return null;
+  const { ox, oy } = viewOrigin(b, z, w, h);
+  const cv = document.createElement("canvas");
+  cv.width = w;
+  cv.height = h;
+  const ctx = cv.getContext("2d");
+  if (!ctx) return null;
+  ctx.fillStyle = "#16171e";
+  ctx.fillRect(0, 0, w, h);
+  const imgs = await Promise.all(tiles.map((t) => loadTile(z, t.x, t.y, 6000)));
+  let ok = 0;
+  imgs.forEach((img, i) => {
+    if (!img) return;
+    ok++;
+    ctx.drawImage(img, tiles[i].x * 256 - ox, tiles[i].y * 256 - oy);
+  });
+  if (ok === 0) return null;
+  return { canvas: cv, z, ox, oy };
+}
+
+/** Titik rute dalam koordinat panel (proyeksi sama persis dengan background). */
+export function layoutRouteMerc(points: TrackPoint[], bg: MapBg): RoutePt[] {
+  return points
+    .filter((p) => !p.paused && !p.gap)
+    .map((p) => {
+      const px = mercPx(p.lat, p.lng, bg.z);
+      return { x: px.x - bg.ox, y: px.y - bg.oy };
+    });
 }
 
 /** Petakan titik GPS ke kanvas ((proporsional, padding). pure → bisa di-unit-test. */
@@ -52,7 +133,7 @@ function wrapTitle(ctx: CanvasRenderingContext2D, text: string, maxW: number): s
 }
 
 /** Gambar kartu bagikan ala Strava (1080x1350, cocok untuk Status WA). */
-export function drawShareCard(a: Activity): Promise<Blob> {
+export function drawShareCard(a: Activity, mapBg?: MapBg | null): Promise<Blob> {
   const W = 1080;
   const H = 1350;
   const cv = document.createElement("canvas");
@@ -102,11 +183,19 @@ export function drawShareCard(a: Activity): Promise<Blob> {
   ctx.beginPath();
   ctx.roundRect(mapX, mapY, mapW, mapH, 32);
   ctx.fill();
+  if (mapBg) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.roundRect(mapX, mapY, mapW, mapH, 32);
+    ctx.clip();
+    ctx.drawImage(mapBg.canvas, mapX, mapY, mapW, mapH);
+    ctx.restore();
+  }
   ctx.strokeStyle = "#2a2c31";
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const route = layoutRoute(a.points, mapW, mapH, 70);
+  const route = mapBg ? layoutRouteMerc(a.points, mapBg) : layoutRoute(a.points, mapW, mapH, 70);
   if (route && route.length > 1) {
     ctx.strokeStyle = "#fc4c02";
     ctx.lineWidth = 10;
@@ -144,6 +233,18 @@ export function drawShareCard(a: Activity): Promise<Blob> {
     ctx.textAlign = "left";
   }
 
+  if (mapBg) {
+    const at = "© OpenStreetMap contributors";
+    ctx.font = "400 22px system-ui, sans-serif";
+    const atW = ctx.measureText(at).width + 20;
+    ctx.fillStyle = "rgba(10,10,10,0.65)";
+    ctx.fillRect(mapX + mapW - atW - 12, mapY + mapH - 42, atW, 30);
+    ctx.fillStyle = "#e8e8e8";
+    ctx.textAlign = "right";
+    ctx.fillText(at, mapX + mapW - 22, mapY + mapH - 19);
+    ctx.textAlign = "left";
+  }
+
   // statistik
   const statsY = mapY + mapH + 84;
   const cols = [
@@ -176,7 +277,11 @@ export function drawShareCard(a: Activity): Promise<Blob> {
  *  Jatuh ke unduhan + teks bila HP tidak mendukung. */
 export async function shareActivityImage(a: Activity, toast: (m: string) => void): Promise<void> {
   try {
-    const blob = await drawShareCard(a);
+    // background peta butuh internet; batasi 10 detik lalu lanjut tanpa peta
+    const bgAttempt = renderMapBackground(a.points, 960, 560);
+    const timeout = new Promise<null>((res) => window.setTimeout(() => res(null), 10000));
+    const mapBg = await Promise.race([bgAttempt, timeout]);
+    const blob = await drawShareCard(a, mapBg);
     const file = new File([blob], `ayoolahraga-${a.id.slice(0, 8)}.png`, { type: "image/png" });
     if (typeof navigator.canShare === "function" && navigator.canShare({ files: [file] })) {
       await navigator.share({ files: [file], title: a.title });
