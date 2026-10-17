@@ -38,6 +38,31 @@ export function totalDistanceM(points: TrackPoint[]): number {
   return d;
 }
 
+/** Pecah titik menjadi segmen garis terpisah di setiap jeda (paused) dan gap.
+ *  - Titik `paused` = penanda batas (duplikat posisi terakhir), cuma pembatas,
+ *    tidak digambar.
+ *  - Titik `gap` = posisi NYATA pertama setelah jeda, jadi awal segmen baru.
+ *  Tujuannya: garis tidak pernah "nyambung lurus" melintasi bagian yang hilang
+ *  (mis. layar mati / GPS berhenti), persis bug yang dikeluhkan. */
+export function splitSegments(points: TrackPoint[]): TrackPoint[][] {
+  const segs: TrackPoint[][] = [];
+  let cur: TrackPoint[] = [];
+  for (const p of points) {
+    if (p.paused) {
+      if (cur.length) segs.push(cur);
+      cur = [];
+      continue;
+    }
+    if (p.gap && cur.length) {
+      segs.push(cur);
+      cur = [];
+    }
+    cur.push(p);
+  }
+  if (cur.length) segs.push(cur);
+  return segs;
+}
+
 /** Klasifikasi titik GPS baru. pure function agar bisa di-unit-test.
  *  Filosofi Strava: rekam semua titik yang masuk akal, JANGAN buang karena
  *  kecepatan — motor di mode lari pun harus tetap terekam penuh. */

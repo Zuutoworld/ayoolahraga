@@ -29,6 +29,8 @@ export interface Tracker {
   countdown: number;
   gpsOk: boolean;
   gpsMsg: string;
+  gpsErrMsg: string;
+  screenLocked: boolean;
   autoPaused: boolean;
   pending: FinishedResult | null;
   hasRecoveredDraft: boolean;
@@ -45,6 +47,10 @@ export interface Tracker {
 
 const GAP_MS = 30_000;
 const AUTO_PAUSE_MS = 10_000;
+// Kalau GPS benar-benar berhenti (layar mati / app di background), jeda otomatis.
+const GPS_SILENCE_MS = 15_000;
+// Wake lock kadang lepas diam-diam di sebagian browser -> minta ulang berkala.
+const WAKELOCK_RETRY_MS = 30_000;
 
 export function useTracker(): Tracker {
   const [state, setState] = useState<TrackState>("idle");
@@ -53,6 +59,8 @@ export function useTracker(): Tracker {
   const [countdown, setCountdown] = useState(3);
   const [gpsOk, setGpsOk] = useState(false);
   const [gpsMsg, setGpsMsg] = useState("Menunggu GPS…");
+  const [gpsErrMsg, setGpsErrMsg] = useState("");
+  const [screenLocked, setScreenLocked] = useState(false);
   const [autoPaused, setAutoPaused] = useState(false);
   const [pending, setPending] = useState<FinishedResult | null>(null);
   const [hasRecoveredDraft, setHasRecoveredDraft] = useState(false);
@@ -64,22 +72,41 @@ export function useTracker(): Tracker {
   const pauseStart = useRef<number>(0);
   const stillSince = useRef<number | null>(null);
   const elapsedTick = useRef<number>(0);
+  const lastGpsAt = useRef<number>(0);
   const [, force] = useState(0);
 
-  // Wake Lock: tahan layar HP tetap nyala saat tracking (hemat ribet, gratis)
+  // Wake Lock: tahan layar HP tetap nyala saat tracking (hemat ribet, gratis).
+  // Ini kunci utama supaya browser tidak meng-throttle GPS saat layar mati.
   const wakeRef = useRef<{ release: () => void } | null>(null);
   const lockScreen = useCallback(() => {
     try {
-      const nav = navigator as Navigator & { wakeLock?: { request: (t: string) => Promise<{ release: () => void }> } };
-      if (!nav.wakeLock) return;
+      const nav = navigator as Navigator & {
+        wakeLock?: {
+          request: (
+            t: string,
+          ) => Promise<{ release: () => void; addEventListener?: (type: string, cb: () => void) => void }>;
+        };
+      };
+      if (!nav.wakeLock) {
+        setScreenLocked(false);
+        return;
+      }
       nav.wakeLock.request("screen").then(
         (s) => {
           wakeRef.current = s;
+          setScreenLocked(true);
+          // kalau browser melepas lock sendiri, pantulkan statusnya
+          s.addEventListener?.("release", () => {
+            if (wakeRef.current === s) {
+              wakeRef.current = null;
+              setScreenLocked(false);
+            }
+          });
         },
-        () => {},
+        () => setScreenLocked(false),
       );
     } catch {
-      // HP/browser tidak dukung, abaikan
+      setScreenLocked(false);
     }
   }, []);
   const unlockScreen = useCallback(() => {
@@ -89,6 +116,7 @@ export function useTracker(): Tracker {
       // abaikan
     }
     wakeRef.current = null;
+    setScreenLocked(false);
   }, []);
 
   const ptsRef = useRef<TrackPoint[]>([]);
@@ -157,6 +185,44 @@ export function useTracker(): Tracker {
 
   useEffect(() => stopWatch, [stopWatch]);
 
+  // penanda batas jeda: titik duplikat posisi terakhir, dipakai MapView buat
+  // memutus garis (biar tidak nyambung lurus lewat bagian yang hilang)
+  const insertBoundary = useCallback(() => {
+    const prev = ptsRef.current[ptsRef.current.length - 1];
+    if (!prev) return;
+    setPts([...ptsRef.current, { ...prev, t: Date.now(), paused: true }]);
+  }, [setPts]);
+
+  // jeda otomatis (sama untuk "diam" maupun "GPS berhenti")
+  const doAutoPause = useCallback(() => {
+    if (stateRef.current !== "tracking") return;
+    pauseStart.current = Date.now();
+    stillSince.current = null;
+    setAutoPaused(true);
+    setState("paused");
+  }, []);
+
+  // watchdog: GPS berhenti total (layar mati / app di background / sinyal putus)
+  // -> jeda otomatis. Tanpa ini, saat GPS hidup lagi titik baru bisa jauh sekali
+  // dan garis jadi lurus melintasi tikungan.
+  useEffect(() => {
+    const iv = window.setInterval(() => {
+      if (stateRef.current !== "tracking") return;
+      if (ptsRef.current.length === 0) return;
+      if (Date.now() - lastGpsAt.current > GPS_SILENCE_MS) doAutoPause();
+    }, 2000);
+    return () => window.clearInterval(iv);
+  }, [doAutoPause]);
+
+  // wake lock kadang lepas diam-diam -> minta ulang berkala selama tracking
+  useEffect(() => {
+    if (state !== "tracking") return;
+    const iv = window.setInterval(() => {
+      if (!wakeRef.current) lockScreen();
+    }, WAKELOCK_RETRY_MS);
+    return () => window.clearInterval(iv);
+  }, [state, lockScreen]);
+
   const onPos = useCallback(
     (pos: GeolocationPosition) => {
       const { latitude, longitude, accuracy, speed } = pos.coords;
@@ -169,6 +235,7 @@ export function useTracker(): Tracker {
       }
 
       const st = stateRef.current;
+      lastGpsAt.current = Date.now();
       if (st === "gps_check") {
         if (accuracy && accuracy <= 20) {
           setGpsOk(true);
@@ -209,37 +276,39 @@ export function useTracker(): Tracker {
         const dt = Math.max(1, (t - prev.t) / 1000);
         if (isImpossibleJump(haversineM(prev, np), dt)) return;
       }
-      const next = [...ptsRef.current, np];
-      setPts(next);
 
-      // auto-pause: diam di bawah ambang selama 10 detik (ambang ikut olahraga)
+      // putusan jeda/lanjut diambil SEBELUM titik baru masuk, supaya penanda
+      // batas bisa disisipkan di posisi yang benar (sebelum titik baru).
       const spd = speed ?? null;
       const pauseAt = pauseSpeedFor(sportRef.current);
       if (st === "tracking" && spd !== null && spd < pauseAt) {
+        // auto-pause: diam di bawah ambang selama 10 detik (ambang ikut olahraga)
         if (!stillSince.current) stillSince.current = t;
-        if (t - stillSince.current > AUTO_PAUSE_MS) {
-          pauseStart.current = Date.now();
-          setAutoPaused(true);
-          setState("paused");
-        }
+        if (t - stillSince.current > AUTO_PAUSE_MS) doAutoPause();
       } else if (spd !== null && spd >= pauseAt + 1) {
         stillSince.current = null;
         if (st === "paused" && autoRef.current) {
           // auto-resume kalau user jalan lagi
           pausedAccum.current += Date.now() - pauseStart.current;
+          insertBoundary();
           setAutoPaused(false);
+          np.paused = false; // titik ini sudah bergerak lagi -> awal segmen baru
           setState("tracking");
         } else if (st === "tracking") {
           stillSince.current = null;
         }
       }
+
+      setPts([...ptsRef.current, np]);
     },
-    [setPts],
+    [doAutoPause, insertBoundary, setPts],
   );
 
   const onErr = useCallback((e: GeolocationPositionError) => {
     if (stateRef.current === "gps_check") {
       setGpsMsg(`GPS error: ${e.message}. Aktifkan izin Location di perangkat.`);
+    } else {
+      setGpsErrMsg(`GPS terputus: ${e.message}. Cek izin lokasi / sinyal.`);
     }
   }, []);
 
@@ -260,6 +329,7 @@ export function useTracker(): Tracker {
     setState("gps_check");
     setGpsOk(false);
     setGpsMsg("Mencari sinyal GPS…");
+    setGpsErrMsg("");
     startWatch();
     // auto countdown setelah 4 detik walau akurasi belum sempurna (kasih opsi mulai)
     window.setTimeout(() => {
@@ -278,6 +348,7 @@ export function useTracker(): Tracker {
           stillSince.current = null;
           setAutoPaused(false);
           setState("tracking");
+          lastGpsAt.current = Date.now();
           startWatch();
           lockScreen();
           elapsedTick.current = Date.now();
@@ -302,6 +373,7 @@ export function useTracker(): Tracker {
     saveDraft(null);
     setHasRecoveredDraft(false);
     setAutoPaused(false);
+    setGpsErrMsg("");
     setState("idle");
   }, [setPts, stopWatch, unlockScreen]);
 
@@ -319,13 +391,9 @@ export function useTracker(): Tracker {
     setAutoPaused(false);
     lockScreen();
     // tandai boundary biar jarak tidak narik garis lurus
-    const prev = ptsRef.current[ptsRef.current.length - 1];
-    if (prev) {
-      const next = [...ptsRef.current, { ...prev, t: Date.now(), paused: true }];
-      setPts(next);
-    }
+    insertBoundary();
     setState("tracking");
-  }, [setPts, lockScreen]);
+  }, [insertBoundary, lockScreen]);
 
   const finish = useCallback(() => {
     stopWatch();
@@ -375,6 +443,8 @@ export function useTracker(): Tracker {
     countdown,
     gpsOk,
     gpsMsg,
+    gpsErrMsg,
+    screenLocked,
     autoPaused,
     pending,
     hasRecoveredDraft,

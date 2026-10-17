@@ -10,6 +10,7 @@ import {
   haversineM,
   isImpossibleJump,
   routeHash,
+  splitSegments,
   toGpx,
   totalDistanceM,
 } from "../src/lib/geo";
@@ -88,6 +89,14 @@ const withPaused = [...line.slice(0, 5), { ...line[5], paused: true }, ...line.s
 ok(totalDistanceM(withPaused) < dLine, "titik paused tidak dihitung");
 const withGap = [...line.slice(0, 5), { ...line[5], gap: true }, ...line.slice(6)];
 ok(totalDistanceM(withGap) < dLine, "titik gap tidak dihitung");
+
+// segmentasi garis: jeda (paused) & gap MEMUTUS garis, bukan nyambung lurus
+ok(splitSegments([]).length === 0, "splitSegments kosong");
+ok(splitSegments(line).length === 1, "splitSegments tanpa jeda = 1 segmen");
+const segsPaused = splitSegments(withPaused);
+ok(segsPaused.length === 2 && segsPaused[0].length === 5 && segsPaused[1].length === 5, "titik paused memutus garis", segsPaused);
+const segsGap = splitSegments(withGap);
+ok(segsGap.length === 2 && segsGap[0].length === 5 && segsGap[1].length === 6, "gap mulai segmen baru (titik tetap digambar)", segsGap);
 
 ok(formatDist(500) === "500 m" && formatDist(2500) === "2.50 km", "formatDist");
 ok(formatPace(5000, 1800) === `6'00"`, "formatPace 5K/30mnt", formatPace(5000, 1800));

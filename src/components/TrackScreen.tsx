@@ -109,7 +109,15 @@ export default function TrackScreen({
           )}
         </div>
         {s === "paused" && (
-          <div className="banner">{tracker.autoPaused ? "Jeda otomatis — tidak ada pergerakan terdeteksi." : "Tracking dijeda."}</div>
+          <div className="banner">{tracker.autoPaused ? "Jeda otomatis — tidak ada pergerakan / GPS berhenti. Garis track diputus di sini, tidak diteruskan lurus." : "Tracking dijeda."}</div>
+        )}
+        {tracker.gpsErrMsg && (
+          <div className="banner warn">{tracker.gpsErrMsg}</div>
+        )}
+        {!tracker.screenLocked && (
+          <div className="banner warn">
+            Layar tidak bisa dikunci otomatis (iOS/Safari tidak mendukung). Biarkan layar tetap menyala agar GPS tidak berhenti saat tracking.
+          </div>
         )}
         {noSignal && (
           <div className="banner warn">
@@ -122,7 +130,7 @@ export default function TrackScreen({
           </div>
         )}
         <MapView points={tracker.points} height={260} />
-        <p className="muted">{tracker.points.length} titik GPS • sinyal {lastAcc !== null ? `±${Math.round(lastAcc)} m` : "—"}{coarseCount > 0 ? ` • ${coarseCount} titik akurasi rendah (putih)` : ""} • jeda di atas 30 detik tidak dihitung</p>
+        <p className="muted">{tracker.points.length} titik GPS • sinyal {lastAcc !== null ? `±${Math.round(lastAcc)} m` : "—"}{coarseCount > 0 ? ` • ${coarseCount} titik akurasi rendah (putih)` : ""} • jeda di atas 30 detik tidak dihitung • layar {tracker.screenLocked ? "terkunci (tetap nyala)" : "tidak terkunci"}</p>
         <div className="row">
           {s === "tracking" ? (
             <button className="btn" onClick={() => tracker.pause()}>Jeda</button>
